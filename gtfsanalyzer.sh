@@ -3,7 +3,6 @@
 # This Script is under GNU Lesser General Public License v3.0
 # See: http://www.gnu.org/licenses/lgpl-3.0.html
 # Please feel free to contact me coding@langstreckentouren.de
-# Have fun with this stuff ;)
 
 # Überprüfung, ob Programm gpxinfo installiert ist.
 # type -p: Leere Ausgabe bei fehlendem Paket.
