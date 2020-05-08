@@ -37,9 +37,6 @@ fi
 if [ ! -e "./routes.txt" ]; then
  echo "routes.txt fehlt im Verzeichnis ${PWD}." && exit 2
 fi
-if [ ! -e "./attributions.txt" ]; then
- echo "attributions.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
 
 if [ ! -d "results" ]; then
   mkdir ./results
