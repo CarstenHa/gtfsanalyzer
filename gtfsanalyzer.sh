@@ -10,6 +10,37 @@ if [ -z "$(type -p gpxinfo)" ]; then
  read -p "Das Programm gpxinfo ist nicht installiert. Um den vollen Funktionsumfang nutzen zu können, mussen sie das Programm aus dem Paket python3-gpxpy (sudo apt-get install python3-gpxpy) installieren. Weiter mit [ENTER]"
 fi
 
+if [ ! -e "./stops.txt" ]; then
+ echo "stops.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./transfers.txt" ]; then
+ echo "transfers.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./calendar_dates.txt" ]; then
+ echo "calendar_dates.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./calendar.txt" ]; then
+ echo "calendar.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./agency.txt" ]; then
+ echo "agency.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./trips.txt" ]; then
+ echo "trips.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./stop_times.txt" ]; then
+ echo "stop_times.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./shapes.txt" ]; then
+ echo "shapes.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./routes.txt" ]; then
+ echo "routes.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+if [ ! -e "./attributions.txt" ]; then
+ echo "attributions.txt fehlt im Verzeichnis ${PWD}." && exit 2
+fi
+
 if [ ! -d "results" ]; then
   mkdir ./results
 fi
