@@ -74,6 +74,7 @@ Options:
    -s [param]		(shapes) Analysiert die verschiedenen Fahrtvarianten einer Route.
 			benötigt einen weiteren Parameter in Form einer Routennummer.
 			Beispiel: $0 -s 1S
+   -s shapesingle	Listet Informationen zu einer bestimmten Shape-ID auf.
    -t [param]		(trips) Analysiert alle Trips eines bestimmten Verkehrsunternehmens (agency)
 			benötigt einen weiteren Parameter in Form einer Routennummer.
 			Beispiel: $0 -t 1S
@@ -310,9 +311,122 @@ do
 
   ;;
 
-  # *** Ermittlung der Routenvarianten einer bestimmten Route ***
+  # *** Ermittlung der Routenvariante(n) einer bestimmten Route ***
 
   s) operatorabfrage
+
+     # ** shapesingle **
+
+     if [ "$OPTARG" == "shapesingle" ]; then
+
+      read -p "Bitte Shape-ID eingeben: " shapeid
+      read -p "Bitte Routennummer eingeben: " OPTARG
+
+      # route_id ermitteln
+      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+
+      if [ -n "$routeid" ]; then
+
+       tripidlist="$(grep "$routeid" ./trips.txt | cut -d, -f3)"
+       # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
+ 
+       echo ""
+       echo "*** Ermittlung EINER Routenvariante ***" | tee ./analysis.tmp
+       echo "Ausgewertete Route: $OPTARG" | tee -a ./analysis.tmp
+       echo "Operator (agency): $agencyname" | tee -a ./analysis.tmp
+       echo "Shape-ID: $shapeid" | tee -a ./analysis.tmp
+       echo "***************************************" | tee -a ./analysis.tmp
+
+       # ** Überprüfungen, ob diverse Angaben zur shape-id passen. **
+       recheck="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | cut -d, -f1 | uniq)"
+       # Überprüfung, ob shape-ID in shapes.txt vorhanden ist (anhand leerer Variable).
+       if [ -z "$(cut -d, -f1 ./shapes.txt | grep $shapeid)" ]; then
+
+        echo "Keine passende Shape-ID gefunden." | tee -a ./analysis.tmp
+
+       # Überprüfung, ob shape-ID vorhanden ist und zur agency passt (Wenn nicht, dann echo).
+       elif [ ! "$(grep "$recheck" ./routes.txt | cut -d, -f2)" == "$agencyid" ]; then
+
+        echo "Shape-ID passt nicht zur agency!"
+
+       # Überprüfung, ob shape-ID zur Routennummer passt (Wenn nicht, dann echo).
+       elif [ ! "$(grep "$recheck" ./routes.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,.*/\1/')" == "$OPTARG" ]; then
+
+        echo "Routennummer passt nicht zur shape_id!"
+
+       else
+
+        # Die etwas umständlicheren sed-Befehle sind der Tatsache geschuldet, das einige Felder die gequotet sind, Feldtrenner (Kommas) enthalten und das Ergebnis mit cut verfälscht werden würde.
+
+        unset abfahrtstart
+        echo "Routenvariante ${shapeid}:" | tee -a ./analysis.tmp
+
+        # uniq -f: Das Feld wird nicht ausgewertet.
+        shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
+        tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
+        trip="$(grep "$tripid" ./stop_times.txt)"
+        serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
+ 
+        anzstopsinroute="$(echo "$trip" | wc -l)"
+        for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
+         stopline="$(echo "$trip" | sed -n ''$b'p')"
+         # Es wird nur die Zeit der ersten Haltestelle benötigt. Da Variable zu Beginn leer (unset;siehe oben), wird sie beim ersten Fund neu belegt und bleibt bestehen bis zum Ende der for-Schleife.
+         if [ -z "$abfahrtstart" ]; then
+          abfahrtstart="$(echo "$stopline" | cut -d, -f3 | sed 's/24\(:..:..\)/00\1/')"
+         fi
+         haltestellenid="$(echo "$stopline" | cut -d, -f4)"
+         haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
+
+         # Hier werden die erste und letzte Zeile angezeigt und in .tmp-Datei geschrieben.
+         # Zwischenhalte werden nur in Datei geschrieben
+         if [ "$b" == "1" ]; then
+          echo "Stop ${b}: $haltestelle" | tee -a ./analysis.tmp
+         elif [ "$b" == "$anzstopsinroute" ]; then
+          echo "Stop ${b}: $haltestelle" | tee -a ./analysis.tmp
+          # Wird nur zur Auswertung bei der letzten Haltestelle benötigt.
+          # für die Ausgaben: "Dauer der Fahrt" und "Ausgewertete Trip-ID".
+          # Mit sed wird Datumsformat der Stunden von 24 Uhr auf 00 Uhr geändert, sonst passt Ergebnis nicht.
+          ankunftundende="$(echo "$stopline" | cut -d, -f2 | sed 's/24\(:..:..\)/00\1/')"
+         else
+          echo "Stop ${b}: $haltestelle" >>./analysis.tmp
+         fi
+        done
+
+        verkehrstage="$(grep '^'"$serviceid"',' ./calendar.txt | cut -d, -f2-8 | sed 's/,/ /g;s/1/x/g;s/0/-/g')"
+        verkehrst_plus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,1' | sed 's/^[^,]*,\([^,]*\),1/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/')"
+        verkehrst_minus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,2' | sed 's/^[^,]*,\([^,]*\),2/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/')"
+        echo "Augewertete Trip-ID: $tripid (${abfahrtstart} Uhr - ${ankunftundende} Uhr)" | tee -a ./analysis.tmp
+        echo "Verkehrstage des ausgewerteten Trips (Mo-So): $verkehrstage" | tee -a ./analysis.tmp
+        if [ -n "$verkehrst_plus" ]; then
+         echo "Zusätzliche Verkehrstage:" | tee -a ./analysis.tmp
+         echo "$verkehrst_plus" | sort | tee -a ./analysis.tmp
+        fi
+        if [ -n "$verkehrst_minus" ]; then
+         echo "Fährt nicht an diesen Tagen:" | tee -a ./analysis.tmp
+         echo "$verkehrst_minus" | sort | tee -a ./analysis.tmp
+        fi
+
+        # Auswertungen für Ausgabe "Dauer der Fahrt".
+        Startdate=$(date -u -d "$abfahrtstart" +"%s")
+        Finaldate=$(date -u -d "$ankunftundende" +"%s")
+
+        echo "Dauer der Fahrt: $(date -u -d "0 $Finaldate sec - $Startdate sec" +%H:%M)"  | tee -a ./analysis.tmp
+        echo "Service-ID: $serviceid" | tee -a ./analysis.tmp
+        echo "Haltestellen in Route: $anzstopsinroute" | tee -a ./analysis.tmp
+        echo "***************************************" | tee -a ./analysis.tmp
+
+        mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_shapesingle_"$shapeid".txt
+
+       # Ende der Verzweigung: Überprüfung der shape-ID
+       fi
+
+      else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -r aufgerufen werden."
+      fi
+      # ** shapesingle Ende **
+
+  # ** Ermittlung aller Routenvarianten **
+  else
+
      # route_id ermitteln
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
 
@@ -400,6 +514,9 @@ do
 
     else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -r aufgerufen werden."
     fi
+
+# Ende Verzweigung shapesingle/Alle Routenvarianten
+fi
 
   ;;
 
