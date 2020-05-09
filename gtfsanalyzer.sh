@@ -48,8 +48,6 @@ if [ ! -d "gpx" ]; then
  mkdir ./gpx
 fi
 
-# Hier Überprüfung, ob GTFS-Dateien vorhanden sind.
-
 rm -f ./analysis.tmp
 rm -f ./verzweigung.tmp
 rm -f ./routesandtrips.tmp
@@ -76,8 +74,8 @@ operatorabfrage() {
  read -p "Bitte Operator (agency) auswählen: " agencyanswer
  source ./verzweigung.tmp
 }
-usage()
-{
+
+usage() {
 cat <<EOU
 
 Syntax:	$0 [options] [param]
@@ -112,6 +110,7 @@ Options:
 
 EOU
 }
+# *** Funktionen definieren Ende ***
 
 # Überprüfung, ob eine Option angegeben wurde.
 if [ $# == "0" ]; then
@@ -139,7 +138,6 @@ if [ "$(egrep -b '^[^,]*,\"' ./routes.txt | wc -l)" -gt "1" ]; then
   fi
  sed -i 's/^\([^,]*\),\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2,\3/' ./routes.txt
 fi
-# Hier kann noch ein zweiter Test rein, wo bei routes.txt das zweite Feld geprüft wird.
 if [ "$(grep -b '^\"' ./trips.txt | wc -l)" -gt "1" ]; then
  echo "trips.txt wird umgeschrieben ..."
  cp -i ./trips.txt ./backup && echo "Original trips.txt befindet sich nun im Ordner ${PWD}/backup"
