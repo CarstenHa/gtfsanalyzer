@@ -31,12 +31,68 @@ fi
 if [ ! -e "./stop_times.txt" ]; then
  echo "stop_times.txt fehlt im Verzeichnis ${PWD}." && exit 2
 fi
-if [ ! -e "./shapes.txt" ]; then
- echo "shapes.txt fehlt im Verzeichnis ${PWD}." && exit 2
+if [ ! -e "./shapes.txt" -o "$(cat shapes.txt | wc -l)" -lt "3" ]; then
+ echo "shapes.txt fehlt oder ist unvollständig (${PWD})." && exit 2
 fi
 if [ ! -e "./routes.txt" ]; then
  echo "routes.txt fehlt im Verzeichnis ${PWD}." && exit 2
 fi
+
+if [ ! -d "backup" ]; then
+  mkdir ./backup
+fi
+
+echo ""
+echo "Format wird überprüft ..."
+
+if [ "$(grep -b '^\"' ./routes.txt | wc -l)" -gt "1" ]; then
+ echo "routes.txt wird umgeschrieben ..."
+ cp -i ./routes.txt ./backup && echo "Original routes.txt befindet sich nun im Ordner ${PWD}/backup"
+ sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./routes.txt
+fi
+if [ "$(egrep -b '^[^,]*,\"' ./routes.txt | wc -l)" -gt "1" ]; then
+ echo "routes.txt wird umgeschrieben ..."
+  if [ -e ./backup/routes.txt ]; then
+   anzroutestxt="$(ls ./backup/routes.txt | wc -l)"
+   cp -i ./routes.txt ./backup/routes$(($anzroutestxt+1)).txt && echo "routes$(($anzroutestxt+1)).txt befindet sich nun im Ordner ${PWD}/backup"
+  else
+   cp -i ./routes.txt ./backup && echo "Original routes.txt befindet sich nun im Ordner ${PWD}/backup"
+  fi
+ sed -i 's/^\([^,]*\),\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2,\3/' ./routes.txt
+fi
+# Hier kann noch ein zweiter Test rein, wo bei routes.txt das zweite Feld geprüft wird.
+if [ "$(grep -b '^\"' ./trips.txt | wc -l)" -gt "1" ]; then
+ echo "trips.txt wird umgeschrieben ..."
+ cp -i ./trips.txt ./backup && echo "Original trips.txt befindet sich nun im Ordner ${PWD}/backup"
+ sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./trips.txt
+fi
+if [ "$(grep -b '^\"' ./agency.txt | wc -l)" -gt "1" ]; then
+ echo "agency.txt wird umgeschrieben ..."
+ cp -i ./agency.txt ./backup && echo "Original agency.txt befindet sich nun im Ordner ${PWD}/backup"
+ sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./agency.txt
+fi
+if [ "$(grep -b '^\"' ./calendar.txt | wc -l)" -gt "1" ]; then
+ echo "calendar.txt wird umgeschrieben ..."
+ cp -i ./calendar.txt ./backup && echo "Original calendar.txt befindet sich nun im Ordner ${PWD}/backup"
+ sed -i 's/"//g' ./calendar.txt
+fi
+if [ "$(grep -b '^\"' ./calendar_dates.txt | wc -l)" -gt "1" ]; then
+ echo "calendar_dates.txt wird umgeschrieben ..."
+ cp -i ./calendar_dates.txt ./backup && echo "Original calendar_dates.txt befindet sich nun im Ordner ${PWD}/backup"
+ sed -i 's/"//g' ./calendar_dates.txt
+fi
+if [ "$(grep -b '^\"' ./stops.txt | wc -l)" -gt "1" ]; then
+ echo "stops.txt wird umgeschrieben ..."
+ cp -i ./stops.txt ./backup && echo "Original stops.txt befindet sich nun im Ordner ${PWD}/backup"
+ sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./stops.txt
+fi
+if [ "$(grep -b '^\"' ./stop_times.txt | wc -l)" -gt "1" ]; then
+ echo "stop_times.txt wird umgeschrieben ..."
+ cp -i ./stop_times.txt ./backup && echo "Original stop_times.txt befindet sich nun im Ordner ${PWD}/backup"
+ sed -i 's/"//g' ./stop_times.txt
+fi
+
+echo "Format überprüfen fertig."
 
 if [ ! -d "results" ]; then
   mkdir ./results
@@ -548,9 +604,9 @@ fi
 
   ;;
 
-  # *** GPX-Erstellung ***
+  g) # *** GPX-Erstellung ***
 
-  g) operatorabfrage
+     operatorabfrage
      # route_id ermitteln
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
 
