@@ -61,7 +61,7 @@ operatorabfrage() {
  anzagency="$(echo "$agencylist" | wc -l)"
 
  echo "" >./verzweigung.tmp
- echo "Agencys:"
+ echo "Agencies:"
  for ((d=1 ; d<=(("$anzagency")) ; d++)); do
   echo "$agencylist" | sed -n ''$d'p' | cut -d, -f2 | sed 's/\(.*\)/['${d}'] - \1/'
   echo "elif [ \"\$agencyanswer\" == "\"$d\"" ]; then" >>./verzweigung.tmp
@@ -106,8 +106,9 @@ Options:
 			Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
 			Syntax: $0 -s singleauto [agency] [shape_id] [route_short_name]
                         Die agency kann mit Option -l agencies ermittelt werden.
-			Die Shape-ID kann mit der Option -s [param] ermittelt werden.
-			Die Routen eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+			Die Shape-ID kann mit der Option -s [route_short_name] ermittelt werden.
+			Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+			Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
    -t [param]		(trips) Analysiert alle Trips eines bestimmten Verkehrsunternehmens (agency)
 			benötigt einen weiteren Parameter in Form einer Routennummer.
 			Beispiel: $0 -t 1S
@@ -809,6 +810,7 @@ fi
 
       mv ./gtfsallstoplist.tmp ./results/`date +%Y%m%d_%H%M%S`_gtfsallstoplist.txt
 
+     # Hier werden alle agencies der GTFS-Daten aufgelistet.
      elif [ "$OPTARG" == "agencies" ]; then
 
       echo ""
