@@ -175,6 +175,7 @@ if [ "$(grep -b '^\"' ./stop_times.txt | wc -l)" -gt "1" ]; then
 fi
 
 echo "GTFS-Datenüberprüfung abgeschlossen."
+echo ""
 
 
 
@@ -534,6 +535,7 @@ bothsingle() {
        shift
       done
 
+      operatorabfrage && source ./verzweigung.tmp
       bothsingle
 
   # ** Ermittlung aller Routenvarianten **
