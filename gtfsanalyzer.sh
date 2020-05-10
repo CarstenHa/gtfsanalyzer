@@ -70,9 +70,6 @@ operatorabfrage() {
  done
  echo "fi" >>./verzweigung.tmp
  sed -i '2s/elif/if/1' ./verzweigung.tmp
-    
- read -p "Bitte Operator (agency) auswählen: " agencyanswer
- source ./verzweigung.tmp
 }
 
 usage() {
@@ -96,6 +93,7 @@ Options:
 			Beispiel: $0 -l routes       listet alle Routennummern einer agency auf.
 			Beispiel: $0 -l stops        listet alle Haltestellen einer agency auf.
 			Beispiel: $0 -l allstops     listet alle Haltestellen der GTFS-Daten auf.
+			Beispiel: $0 -l agencies     listet alle Verkehrsunternehmen der GTFS-Daten auf.
    -o [param]		(only stops) Analysiert Haltestellen nach entsprechenden Suchstring.
 			Für jede Haltestelle wird eine GPX-Datei erstellt.
 			benötigt einen weiteren Parameter in Form eines Haltestellennamens.
@@ -103,7 +101,13 @@ Options:
    -s [param]		(shapes) Analysiert die verschiedenen Fahrtvarianten einer Route.
 			benötigt einen weiteren Parameter in Form einer Routennummer.
 			Beispiel: $0 -s 1S
-   -s shapesingle	Listet Informationen zu einer bestimmten Shape-ID auf.
+   -s single		Listet Informationen zu einer bestimmten Shape-ID auf.
+   -s singleauto	Listet Informationen zu einer bestimmten Shape-ID auf. 
+			Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
+			Syntax: $0 -s singleauto [agency] [shape_id] [route_short_name]
+                        Die agency kann mit Option -l agencies ermittelt werden.
+			Die Shape-ID kann mit der Option -s [param] ermittelt werden.
+			Die Routen eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
    -t [param]		(trips) Analysiert alle Trips eines bestimmten Verkehrsunternehmens (agency)
 			benötigt einen weiteren Parameter in Form einer Routennummer.
 			Beispiel: $0 -t 1S
@@ -285,6 +289,8 @@ do
   # *** Ermittlung aller Trips einer bestimmten Route ***
 
   t) operatorabfrage
+     read -p "Bitte Operator (agency) auswählen: " agencyanswer
+     source ./verzweigung.tmp
      # route_id ermitteln
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
 
@@ -397,15 +403,9 @@ do
 
   # *** Ermittlung der Routenvariante(n) einer bestimmten Route ***
 
-  s) operatorabfrage
+  s) # ** Funktion definieren für single und singleauto **
 
-     # ** shapesingle **
-
-     if [ "$OPTARG" == "shapesingle" ]; then
-
-      read -p "Bitte Shape-ID eingeben: " shapeid
-      read -p "Bitte Routennummer eingeben: " OPTARG
-
+bothsingle() {
       # route_id ermitteln
       routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
 
@@ -506,10 +506,41 @@ do
 
       else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -r aufgerufen werden."
       fi
-      # ** shapesingle Ende **
+      # ** Shapesingle-Funktion Ende **
+}
+
+     if [ "$OPTARG" == "single" ]; then
+
+      operatorabfrage
+      read -p "Bitte Operator (agency) auswählen: " agencyanswer
+      source ./verzweigung.tmp
+      read -p "Bitte Shape-ID eingeben: " shapeid
+      read -p "Bitte Routennummer eingeben: " OPTARG
+
+      bothsingle
+
+     elif [ "$OPTARG" == "singleauto" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "singleauto" ]; then
+        agencyanswer="$2"
+        shapeid="$3"
+        OPTARG="$4"
+        break
+       fi
+       shift
+      done
+
+      bothsingle
 
   # ** Ermittlung aller Routenvarianten **
   else
+
+     operatorabfrage
+     read -p "Bitte Operator (agency) auswählen: " agencyanswer
+     source ./verzweigung.tmp
 
      # route_id ermitteln
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
@@ -607,6 +638,8 @@ fi
   g) # *** GPX-Erstellung ***
 
      operatorabfrage
+     read -p "Bitte Operator (agency) auswählen: " agencyanswer
+     source ./verzweigung.tmp
      # route_id ermitteln
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
 
@@ -682,6 +715,8 @@ fi
 
   l) if [ "$OPTARG" == "routes" ]; then
       operatorabfrage
+      read -p "Bitte Operator (agency) auswählen: " agencyanswer
+      source ./verzweigung.tmp
       routeidlist="$(grep '^.*,'"$agencyid"',' ./routes.txt | cut -d, -f1)"
 
       allerouten="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',' | cut -d, -f3 | sed 's/\"\(.*\)\"/\1/' | sort -n)"
@@ -701,12 +736,12 @@ fi
 
       mv ./gtfsroutelist.tmp ./results/`date +%Y%m%d_%H%M%S`_gtfsroutelist_"$agencyname".txt
 
-     fi
-
-     if [ "$OPTARG" == "stops" ]; then
+     elif [ "$OPTARG" == "stops" ]; then
   
       # **** Hier werden alle Haltestellen einer bestimmten agency ermittelt. ****
       operatorabfrage
+      read -p "Bitte Operator (agency) auswählen: " agencyanswer
+      source ./verzweigung.tmp
 
       echo ""
       echo "Die Ermittlung der Haltestellen kann mehrere Minuten dauern ..."
@@ -761,10 +796,9 @@ fi
       rm -f ./stopidlist.tmp
       rm -f ./allehaltestellen.tmp
 
-     fi
 
      # Hier werden alle vorhandenen Haltestellen in den GTFS-Daten ermittelt.
-     if [ "$OPTARG" == "allstops" ]; then
+     elif [ "$OPTARG" == "allstops" ]; then
       cat ./stops.txt | sed 's/^[^,]*,\"[^\"]*\"[^,]*,\"\([^\"]*\)\"[^,]*,.*$/\1/' | sort >./gtfsallstoplist.tmp
       
       # attributions.txt auslesen
@@ -774,6 +808,16 @@ fi
       echo ""
 
       mv ./gtfsallstoplist.tmp ./results/`date +%Y%m%d_%H%M%S`_gtfsallstoplist.txt
+
+     elif [ "$OPTARG" == "agencies" ]; then
+
+      echo ""
+      operatorabfrage
+      echo ""
+
+     else
+
+      echo "Ungültige oder fehlerhafte Angabe. Zur Übersicht der Optionen können Sie $0 -h aufrufen."
 
      fi
 
