@@ -398,7 +398,7 @@ do
 
      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencyname".txt
 
-    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -r aufgerufen werden."
+    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
     fi
 
   ;;
@@ -506,7 +506,7 @@ bothsingle() {
        # Ende der Verzweigung: Überprüfung der shape-ID
        fi
 
-      else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -r aufgerufen werden."
+      else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
       fi
       # ** Shapesingle-Funktion Ende **
 }
@@ -535,7 +535,7 @@ bothsingle() {
        shift
       done
 
-      operatorabfrage && source ./verzweigung.tmp
+      operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
       bothsingle
 
   # ** Ermittlung aller Routenvarianten **
@@ -630,7 +630,7 @@ bothsingle() {
 
      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_tripvarianten_"$agencyname".txt
 
-    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -r aufgerufen werden."
+    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
     fi
 
 # Ende Verzweigung shapesingle/Alle Routenvarianten
@@ -711,7 +711,7 @@ fi
 
      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_generategpx_"$agencyname".txt
 
-    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -r aufgerufen werden."
+    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
     fi
 
   ;;
