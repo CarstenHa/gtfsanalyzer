@@ -552,7 +552,7 @@ bothsingle() {
 
      tripidlist="$(grep "$routeid" ./trips.txt | cut -d, -f3)"
      # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
-     shapeidlist="$(grep "$routeid" ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+     shapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
 
      echo ""
      echo "*** Ermittlung von Routenvarianten ****" | tee ./analysis.tmp
