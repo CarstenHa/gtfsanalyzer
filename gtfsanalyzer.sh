@@ -298,9 +298,9 @@ do
 
     if [ -n "$routeid" ]; then
 
-     tripidlist="$(grep "$routeid" ./trips.txt | cut -d, -f3)"
+     tripidlist="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
      # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
-     shapeidlist="$(grep "$routeid" ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+     shapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
 
      echo ""
      echo "** Ermittlung aller Trips einer Route *" | tee ./analysis.tmp
@@ -413,7 +413,7 @@ bothsingle() {
 
       if [ -n "$routeid" ]; then
 
-       tripidlist="$(grep "$routeid" ./trips.txt | cut -d, -f3)"
+       tripidlist="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
        # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
  
        echo ""
@@ -550,7 +550,7 @@ bothsingle() {
 
     if [ -n "$routeid" ]; then
 
-     tripidlist="$(grep "$routeid" ./trips.txt | cut -d, -f3)"
+     tripidlist="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
      # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
      shapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
 
@@ -649,7 +649,7 @@ fi
     if [ -n "$routeid" ]; then
 
      # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
-     shapeidlist="$(grep "$routeid" ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+     shapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
 
      echo ""
      echo "***** Erstellung von GPX-Dateien ******" | tee ./analysis.tmp
