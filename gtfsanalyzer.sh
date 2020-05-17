@@ -431,12 +431,11 @@ bothsingle() {
         echo "Keine passende Shape-ID gefunden." | tee -a ./analysis.tmp
 
        # Überprüfung, ob shape-ID vorhanden ist und zur agency passt (Wenn nicht, dann echo).
-       elif [ ! "$(grep "$recheck" ./routes.txt | cut -d, -f2)" == "$agencyid" ]; then
-
+       elif [ ! "$(grep '^'"$recheck"',' ./routes.txt | cut -d, -f2)" == "$agencyid" ]; then
         echo "Shape-ID passt nicht zur agency!"
 
        # Überprüfung, ob shape-ID zur Routennummer passt (Wenn nicht, dann echo).
-       elif [ ! "$(grep "$recheck" ./routes.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,.*/\1/')" == "$OPTARG" ]; then
+       elif [ ! "$(grep '^'"$recheck"',' ./routes.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,.*/\1/')" == "$OPTARG" ]; then
 
         echo "Routennummer passt nicht zur shape_id!"
 
