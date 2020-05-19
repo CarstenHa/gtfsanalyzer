@@ -84,34 +84,76 @@ Für die Analyse stehen folgende Optionen zur Verfügung:
  
 Options:
 
-   -g [param]		(gpx routes) Generiert GPX-Dateien für jede Variante (shape) einer bestimmten Route.
-			benötigt einen weiteren Parameter in Form einer Routennummer.
-			Beispiel: $0 -g 1S
-   -h			gibt diese Hilfe aus.
-   -l [param]		(list) option with mandatory parameter.
-			benötigt einen weiteren Parameter in Form einer Routennummer.
-			Beispiel: $0 -l routes       listet alle Routennummern einer agency auf.
-			Beispiel: $0 -l stops        listet alle Haltestellen einer agency auf.
-			Beispiel: $0 -l allstops     listet alle Haltestellen der GTFS-Daten auf.
-			Beispiel: $0 -l agencies     listet alle Verkehrsunternehmen der GTFS-Daten auf.
-   -o [param]		(only stops) Analysiert Haltestellen nach entsprechenden Suchstring.
-			Für jede Haltestelle wird eine GPX-Datei erstellt.
-			benötigt einen weiteren Parameter in Form eines Haltestellennamens.
-			Beispiel: $0 -o "Berlin HBF"
-   -s [param]		(shapes) Analysiert die verschiedenen Fahrtvarianten einer Route.
-			benötigt einen weiteren Parameter in Form einer Routennummer.
-			Beispiel: $0 -s 1S
-   -s single		Listet Informationen zu einer bestimmten Shape-ID auf.
-   -s singleauto	Listet Informationen zu einer bestimmten Shape-ID auf. 
-			Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
-			Syntax: $0 -s singleauto [agency] [shape_id] [route_short_name]
-                        Die agency kann mit Option -l agencies ermittelt werden.
-			Die Shape-ID kann mit der Option -s [route_short_name] ermittelt werden.
-			Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
-			Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
-   -t [param]		(trips) Analysiert alle Trips eines bestimmten Verkehrsunternehmens (agency)
-			benötigt einen weiteren Parameter in Form einer Routennummer.
-			Beispiel: $0 -t 1S
+   -g [param]		
+
+	(gpx routes) Generiert GPX-Dateien für jede Variante (shape) einer bestimmten Route.
+	benötigt einen weiteren Parameter in Form einer Routennummer.
+	Beispiel: $0 -g 1S
+
+   -g auto
+
+	Generiert GPX-Dateien für jede Variante (shape) einer bestimmten Route.
+	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
+	Syntax: $0 -g auto [agency] [route_short_name]
+	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
+	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+	Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
+
+   -g singleauto
+
+	Generiert GPX-Dateien für EINE Variante (shape) einer bestimmten Route.
+	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
+	Syntax: $0 -g singleauto [agency] [route_short_name] [shape_id]
+	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
+	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+	Die Shape-ID kann mit der Option -s [route_short_name] ermittelt werden.
+	Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
+
+   -h
+
+	gibt diese Hilfe aus.
+
+   -l [param]
+
+	(list) option with mandatory parameter.
+	benötigt einen weiteren Parameter in Form einer Routennummer.
+	Beispiel: $0 -l routes       listet alle Routennummern einer agency auf.
+	Beispiel: $0 -l stops        listet alle Haltestellen einer agency auf.
+	Beispiel: $0 -l allstops     listet alle Haltestellen der GTFS-Daten auf.
+	Beispiel: $0 -l agencies     listet alle Verkehrsunternehmen der GTFS-Daten auf.
+
+   -o [param]
+
+	(only stops) Analysiert Haltestellen nach entsprechenden Suchstring.
+	Für jede Haltestelle wird eine GPX-Datei erstellt.
+	benötigt einen weiteren Parameter in Form eines Haltestellennamens.
+	Beispiel: $0 -o "Berlin HBF"
+
+   -s [param]
+
+	(shapes) Analysiert die verschiedenen Fahrtvarianten einer Route.
+	benötigt einen weiteren Parameter in Form einer Routennummer.
+	Beispiel: $0 -s 1S
+
+   -s single
+
+	Listet Informationen zu einer bestimmten Shape-ID auf.
+
+   -s singleauto
+
+	Listet Informationen zu einer bestimmten Shape-ID auf. 
+	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
+	Syntax: $0 -s singleauto [agency] [shape_id] [route_short_name]
+	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
+	Die Shape-ID kann mit der Option -s [route_short_name] ermittelt werden.
+	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+	Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
+
+   -t [param]
+
+	(trips) Analysiert alle Trips eines bestimmten Verkehrsunternehmens (agency)
+	benötigt einen weiteren Parameter in Form einer Routennummer.
+	Beispiel: $0 -t 1S
 
 EOU
 }
@@ -639,9 +681,53 @@ fi
 
   g) # *** GPX-Erstellung ***
 
-     operatorabfrage
-     read -p "Bitte Operator (agency) auswählen: " agencyanswer
-     source ./verzweigung.tmp
+    unset buildprocess
+
+    if [ "$OPTARG" == "auto" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "auto" ]; then
+        agencyanswer="$2"
+        OPTARG="$3"
+        break
+       fi
+       shift
+      done
+
+      operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+      buildprocess="normal"
+
+    elif [ "$OPTARG" == "singleauto" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "singleauto" ]; then
+        agencyanswer="$2"
+        OPTARG="$3"
+        shapeidauto="$4"
+        break
+       fi
+       shift
+      done
+
+      operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+
+      # Dieser Counter zählt die Prozesse von -g singleauto.
+      # Wenn keine passende ShapeID ermittelt wird, wird später ein Hinweis ausgegeben.
+      singleautocounter="0"
+
+    else
+
+      operatorabfrage
+      read -p "Bitte Operator (agency) auswählen: " agencyanswer
+      source ./verzweigung.tmp
+      buildprocess="normal"
+
+    fi
+
      # route_id ermitteln
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
 
@@ -662,6 +748,10 @@ fi
      for ((c=1 ; c<=(("$anzshapeid")) ; c++)); do
 
       shapeid="$(echo "$shapeidlist" | sed -n ''$c'p')"
+
+      # Wichtige Verzweigung
+      # Es werden GPX bei allen möglichen Optionen (-g) erstellt, außer wenn Variablen shapeidauto und shapeid beim Schalter singleauto nicht übereinstimmen.
+      if [ "$1" == "singleauto" -a "$shapeidauto" == "$shapeid" -o "$buildprocess" == "normal" ]; then
 
       echo "Generiere GPX ${c} ..."
       echo "Name der GPX-Datei: "$OPTARG"_"$shapeid".gpx"  | tee -a ./analysis.tmp
@@ -705,8 +795,20 @@ fi
  
       mv ./"$OPTARG"_"$shapeid".gpx ./gpx/
 
+      # Zähler, nur wenn beide Shape-IDs identisch sind (singleauto).
+      if [ "$1" == "singleauto" -a "$shapeidauto" == "$shapeid" ]; then
+       let singleautocounter++
+      fi
+
+     # Ende der buildprocess/singleauto-Verzweigung
+     fi
+
      # Ende der c-Schleife
      done
+
+     if [ "$1" == "singleauto" -a "$singleautocounter" == "0" ]; then
+      echo "Keine passende(n) Route(n) zur angegebenen Shape-ID ${4} gefunden." | tee -a ./analysis.tmp
+     fi
 
      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_generategpx_"$agencyname".txt
 
