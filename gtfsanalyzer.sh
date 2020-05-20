@@ -3,6 +3,10 @@
 # This Script is under GNU Lesser General Public License v3.0
 # See: http://www.gnu.org/licenses/lgpl-3.0.html
 # Please feel free to contact me coding@langstreckentouren.de
+#
+# Fehlercode-Übersicht:
+# Option -s singleauto 0101 0102 0103 0104 0105
+# Option -g 0201 0202
 
 # Überprüfung, ob Programm gpxinfo installiert ist.
 # type -p: Leere Ausgabe bei fehlendem Paket.
@@ -10,33 +14,8 @@ if [ -z "$(type -p gpxinfo)" ]; then
  read -p "Das Programm gpxinfo ist nicht installiert. Um den vollen Funktionsumfang nutzen zu können, mussen sie das Programm aus dem Paket python3-gpxpy (sudo apt-get install python3-gpxpy) installieren. Weiter mit [ENTER]"
 fi
 
-if [ ! -e "./stops.txt" ]; then
- echo "stops.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
-if [ ! -e "./transfers.txt" ]; then
- echo "transfers.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
-if [ ! -e "./calendar_dates.txt" ]; then
- echo "calendar_dates.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
-if [ ! -e "./calendar.txt" ]; then
- echo "calendar.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
-if [ ! -e "./agency.txt" ]; then
- echo "agency.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
-if [ ! -e "./trips.txt" ]; then
- echo "trips.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
-if [ ! -e "./stop_times.txt" ]; then
- echo "stop_times.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
-if [ ! -e "./shapes.txt" -o "$(cat shapes.txt | wc -l)" -lt "3" ]; then
- echo "shapes.txt fehlt oder ist unvollständig (${PWD})." && exit 2
-fi
-if [ ! -e "./routes.txt" ]; then
- echo "routes.txt fehlt im Verzeichnis ${PWD}." && exit 2
-fi
+# Variable u.a. für error-log-Datei.
+datenow=`date +%Y%m%d_%H%M%S`
 
 if [ ! -d "backup" ]; then
   mkdir ./backup
@@ -46,6 +25,43 @@ if [ ! -d "results" ]; then
 fi
 if [ ! -d "gpx" ]; then
  mkdir ./gpx
+fi
+
+if [ ! -e "./stops.txt" ]; then
+ echo "stops.txt fehlt im Verzeichnis ${PWD}" | tee -a ./results/"$datenow"_error.log
+ exit 1
+fi
+if [ ! -e "./transfers.txt" ]; then
+ echo "transfers.txt fehlt im Verzeichnis ${PWD}" | tee -a ./results/"$datenow"_error.log
+ exit 2
+fi
+if [ ! -e "./calendar_dates.txt" ]; then
+ echo "calendar_dates.txt fehlt im Verzeichnis ${PWD}" | tee -a ./results/"$datenow"_error.log
+ exit 3
+fi
+if [ ! -e "./calendar.txt" ]; then
+ echo "calendar.txt fehlt im Verzeichnis ${PWD}" | tee -a ./results/"$datenow"_error.log
+ exit 4
+fi
+if [ ! -e "./agency.txt" ]; then
+ echo "agency.txt fehlt im Verzeichnis ${PWD}" | tee -a ./results/"$datenow"_error.log
+ exit 5
+fi
+if [ ! -e "./trips.txt" ]; then
+ echo "trips.txt fehlt im Verzeichnis ${PWD}" | tee -a ./results/"$datenow"_error.log
+ exit 6
+fi
+if [ ! -e "./stop_times.txt" ]; then
+ echo "stop_times.txt fehlt im Verzeichnis ${PWD}" | tee -a ./results/"$datenow"_error.log
+ exit 7
+fi
+if [ ! -e "./shapes.txt" -o "$(cat shapes.txt | wc -l)" -lt "3" ]; then
+ echo "shapes.txt fehlt oder ist unvollständig (${PWD})" | tee -a ./results/"$datenow"_error.log
+ exit 8
+fi
+if [ ! -e "./routes.txt" ]; then
+ echo "routes.txt fehlt im Verzeichnis ${PWD}" | tee -a ./results/"$datenow"_error.log
+ exit 9
 fi
 
 rm -f ./analysis.tmp
@@ -143,10 +159,10 @@ Options:
 
 	Listet Informationen zu einer bestimmten Shape-ID auf. 
 	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
-	Syntax: $0 -s singleauto [agency] [shape_id] [route_short_name]
+	Syntax: $0 -s singleauto [agency] [route_short_name] [shape_id] 
 	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
-	Die Shape-ID kann mit der Option -s [route_short_name] ermittelt werden.
 	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+	Die Shape-ID kann mit der Option -s [route_short_name] ermittelt werden.
 	Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
 
    -t [param]
@@ -163,7 +179,7 @@ EOU
 if [ $# == "0" ]; then
  echo "Es wird mindestens eine Option benötigt!"
  usage
- exit 2
+ exit 10
 fi
 
 # Formatüberprüfung der GTFS-Daten
@@ -470,16 +486,19 @@ bothsingle() {
        # Überprüfung, ob shape-ID in shapes.txt vorhanden ist (anhand leerer Variable).
        if [ -z "$(cut -d, -f1 ./shapes.txt | grep $shapeid)" ]; then
 
-        echo "Keine passende Shape-ID gefunden." | tee -a ./analysis.tmp
+        echo "${0} -s: Keine passende Shape-ID gefunden." | tee -a ./analysis.tmp -a ./results/"$datenow"_error.log
+        echo "Agency: ${agencyanswer}/ShapeID: ${shapeid}/Liniennummer: ${OPTARG}/(Fehlercode 0101)" >>./results/"$datenow"_error.log
 
        # Überprüfung, ob shape-ID vorhanden ist und zur agency passt (Wenn nicht, dann echo).
        elif [ ! "$(grep '^'"$recheck"',' ./routes.txt | cut -d, -f2)" == "$agencyid" ]; then
-        echo "Shape-ID passt nicht zur agency!"
+        echo "${0} -s: Shape-ID passt nicht zur agency!" | tee -a ./analysis.tmp -a ./results/"$datenow"_error.log
+        echo "Agency: ${agencyanswer}/ShapeID: ${shapeid}/Liniennummer: ${OPTARG}/(Fehlercode 0102)" >>./results/"$datenow"_error.log
 
        # Überprüfung, ob shape-ID zur Routennummer passt (Wenn nicht, dann echo).
        elif [ ! "$(grep '^'"$recheck"',' ./routes.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,.*/\1/')" == "$OPTARG" ]; then
 
-        echo "Routennummer passt nicht zur shape_id!"
+        echo "${0} -s: shape_id passt nicht zur Routennummer!" | tee -a ./analysis.tmp -a ./results/"$datenow"_error.log
+        echo "Agency: ${agencyanswer}/ShapeID: ${shapeid}/Liniennummer: ${OPTARG}/(Fehlercode 0103)" >>./results/"$datenow"_error.log
 
        else
 
@@ -547,9 +566,9 @@ bothsingle() {
        # Ende der Verzweigung: Überprüfung der shape-ID
        fi
 
-      else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
+      else echo "${0} -s: Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden. (Angewendete Shape-ID: ${shapeid}) (Fehlercode 0104)" | tee -a ./results/"$datenow"_error.log
       fi
-      # ** Shapesingle-Funktion Ende **
+      # ** bothsingle-Funktion Ende **
 }
 
      if [ "$OPTARG" == "single" ]; then
@@ -557,8 +576,10 @@ bothsingle() {
       operatorabfrage
       read -p "Bitte Operator (agency) auswählen: " agencyanswer
       source ./verzweigung.tmp
-      read -p "Bitte Shape-ID eingeben: " shapeid
       read -p "Bitte Routennummer eingeben: " OPTARG
+      read -p "Bitte Shape-ID eingeben: " shapeid
+
+      # Hier könnte noch Überprüfung hin, wenn agencyanswer,OPTARG und shapeid leer sind, dann ...
 
       bothsingle
 
@@ -569,8 +590,8 @@ bothsingle() {
 
        if [ "$1" == "singleauto" ]; then
         agencyanswer="$2"
-        shapeid="$3"
-        OPTARG="$4"
+        OPTARG="$3"
+        shapeid="$4"
         break
        fi
        shift
@@ -671,7 +692,7 @@ bothsingle() {
 
      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_tripvarianten_"$agencyname".txt
 
-    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
+    else echo "${0} -s: Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden. (Fehlercode 0105)" | tee -a ./results/"$datenow"_error.log
     fi
 
 # Ende Verzweigung shapesingle/Alle Routenvarianten
@@ -753,66 +774,70 @@ fi
       # Es werden GPX bei allen möglichen Optionen (-g) erstellt, außer wenn Variablen shapeidauto und shapeid beim Schalter singleauto nicht übereinstimmen.
       if [ "$1" == "singleauto" -a "$shapeidauto" == "$shapeid" -o "$buildprocess" == "normal" ]; then
 
-      echo "Generiere GPX ${c} ..."
-      echo "Name der GPX-Datei: "$OPTARG"_"$shapeid".gpx"  | tee -a ./analysis.tmp
+       echo "Generiere GPX ${c} ..."
+       echo "Name der GPX-Datei: "$OPTARG"_"$shapeid".gpx"  | tee -a ./analysis.tmp
 
-      shapelist="$(grep '^'"$shapeid"',' ./shapes.txt | sort -t"," -k4 -n | cut -d, -f2,3 | sed 's/\(^[^,]*\),\(.*\)/<trkpt lat=\"\1\" lon=\"\2\">\n<\/trkpt>/')"
-      echo "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>" >./"$OPTARG"_"$shapeid".gpx
-      echo "<gpx version=\"1.1\" creator=\"${0}\">" >>./"$OPTARG"_"$shapeid".gpx
-      echo "<trk>" >>./"$OPTARG"_"$shapeid".gpx
-      echo "<name>${OPTARG}_${shapeid}</name>" >>./"$OPTARG"_"$shapeid".gpx
-      echo "<trkseg>" >>./"$OPTARG"_"$shapeid".gpx
-      echo "$shapelist" >>./"$OPTARG"_"$shapeid".gpx
+        shapelist="$(grep '^'"$shapeid"',' ./shapes.txt | sort -t"," -k4 -n | cut -d, -f2,3 | sed 's/\(^[^,]*\),\(.*\)/<trkpt lat=\"\1\" lon=\"\2\">\n<\/trkpt>/')"
+       echo "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>" >./"$OPTARG"_"$shapeid".gpx
+       echo "<gpx version=\"1.1\" creator=\"${0}\">" >>./"$OPTARG"_"$shapeid".gpx
+       echo "<trk>" >>./"$OPTARG"_"$shapeid".gpx
+       echo "<name>${OPTARG}_${shapeid}</name>" >>./"$OPTARG"_"$shapeid".gpx
+       echo "<trkseg>" >>./"$OPTARG"_"$shapeid".gpx
+       echo "$shapelist" >>./"$OPTARG"_"$shapeid".gpx
 
-      # uniq -f: Das Feld wird nicht ausgewertet.
-      shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
-      tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
-      trip="$(grep "$tripid" ./stop_times.txt)"
+       # uniq -f: Das Feld wird nicht ausgewertet.
+       shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
+       tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
+       trip="$(grep "$tripid" ./stop_times.txt)"
       
-      # Haltestellen werden als Wegepunkte in GPX-Datei geschrieben.
-      anzstopsinroute="$(echo "$trip" | wc -l)"
-      for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
-       stopline="$(echo "$trip" | sed -n ''$b'p')"
-       haltestellenid="$(echo "$stopline" | cut -d, -f4)"
-       haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
-       haltestellelatlon="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"[^\"]*\"[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,\"\([^\"]*\)\"[^,]*,.*$/<wpt lat=\"\1\" lon=\"\2\">/')"
-       echo "$haltestellelatlon" >>./"$OPTARG"_"$shapeid".gpx
-       echo "<name>Stop ${b}: ${haltestelle}</name>" >>./"$OPTARG"_"$shapeid".gpx
-       echo "</wpt>" >>./"$OPTARG"_"$shapeid".gpx
-      done
+       # Haltestellen werden als Wegepunkte in GPX-Datei geschrieben.
+       anzstopsinroute="$(echo "$trip" | wc -l)"
+       for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
+        stopline="$(echo "$trip" | sed -n ''$b'p')"
+        haltestellenid="$(echo "$stopline" | cut -d, -f4)"
+        haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
+        haltestellelatlon="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"[^\"]*\"[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,\"\([^\"]*\)\"[^,]*,.*$/<wpt lat=\"\1\" lon=\"\2\">/')"
+        echo "$haltestellelatlon" >>./"$OPTARG"_"$shapeid".gpx
+        echo "<name>Stop ${b}: ${haltestelle}</name>" >>./"$OPTARG"_"$shapeid".gpx
+        echo "</wpt>" >>./"$OPTARG"_"$shapeid".gpx
+       done
 
-      echo "</trkseg>" >>./"$OPTARG"_"$shapeid".gpx
-      echo "</trk>" >>./"$OPTARG"_"$shapeid".gpx
-      echo "</gpx>" >>./"$OPTARG"_"$shapeid".gpx
+       echo "</trkseg>" >>./"$OPTARG"_"$shapeid".gpx
+       echo "</trk>" >>./"$OPTARG"_"$shapeid".gpx
+       echo "</gpx>" >>./"$OPTARG"_"$shapeid".gpx
 
-      triplength="$(gpxinfo ./"$OPTARG"_"$shapeid".gpx | sed -n 1,12p | grep 'Length 3D' | sed 's/.*Length 3D: \(.*\)/\1/')"
+       triplength="$(gpxinfo ./"$OPTARG"_"$shapeid".gpx | sed -n 1,12p | grep 'Length 3D' | sed 's/.*Length 3D: \(.*\)/\1/')"
 
-      echo "Shape-ID: $shapeid" | tee -a ./analysis.tmp
-      echo "Länge der Route: ${triplength}" | tee -a ./analysis.tmp
-      echo "Haltestellen in Route: $anzstopsinroute" | tee -a ./analysis.tmp
-      echo "***************************************" | tee -a ./analysis.tmp
+       echo "Shape-ID: $shapeid" | tee -a ./analysis.tmp
+       echo "Länge der Route: ${triplength}" | tee -a ./analysis.tmp
+       echo "Haltestellen in Route: $anzstopsinroute" | tee -a ./analysis.tmp
+       echo "***************************************" | tee -a ./analysis.tmp
 
  
-      mv ./"$OPTARG"_"$shapeid".gpx ./gpx/
+       mv ./"$OPTARG"_"$shapeid".gpx ./gpx/
 
-      # Zähler, nur wenn beide Shape-IDs identisch sind (singleauto).
-      if [ "$1" == "singleauto" -a "$shapeidauto" == "$shapeid" ]; then
-       let singleautocounter++
+       # Zähler, nur wenn beide Shape-IDs identisch sind (singleauto).
+       if [ "$1" == "singleauto" -a "$shapeidauto" == "$shapeid" ]; then
+        let singleautocounter++
+       fi
+
+      # Ende der buildprocess/singleauto-Verzweigung
       fi
-
-     # Ende der buildprocess/singleauto-Verzweigung
-     fi
 
      # Ende der c-Schleife
      done
 
      if [ "$1" == "singleauto" -a "$singleautocounter" == "0" ]; then
-      echo "Keine passende(n) Route(n) zur angegebenen Shape-ID ${4} gefunden." | tee -a ./analysis.tmp
+      echo "${0} -g: Keine passende Routenvariante (Linie ${OPTARG}) zur angegebenen Shape-ID ${4} gefunden. (Fehlercode 0201)" | tee -a ./analysis.tmp -a ./results/"$datenow"_error.log
      fi
 
      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_generategpx_"$agencyname".txt
 
-    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
+    else 
+     echo "${0} -g: Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden. (Fehlercode 0202)" | tee -a ./results/"$datenow"_error.log
+     if [ "$1" == "singleauto" ]; then
+      echo "Shape-ID: ${shapeidauto}" >>./results/"$datenow"_error.log
+     fi
     fi
 
   ;;
@@ -936,6 +961,10 @@ fi
 done
 
 # Aufräumen
+rm -f ./analysis.tmp
 rm -f ./verzweigung.tmp
 rm -f ./routesandtrips.tmp
+rm -f ./tripidlist.tmp
+rm -f ./stopidlist.tmp
+rm -f ./allehaltestellen.tmp
 
