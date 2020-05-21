@@ -91,7 +91,7 @@ operatorabfrage() {
 usage() {
 cat <<EOU
 
-Syntax Beispiele:
+SYNOPSIS Beispiele:
 
 	$0 [options] [param]
 	$0 [option] [param] [option] [param]
@@ -104,26 +104,25 @@ Für die Analyse stehen folgende Optionen zur Verfügung:
  
 Options:
 
-   -g [param]		
+   -g [route_short_name]		
 
 	(gpx routes) Generiert GPX-Dateien für jede Variante (shape) einer bestimmten Route.
-	benötigt einen weiteren Parameter in Form einer Routennummer.
+	Benötigt einen weiteren Parameter in Form einer Routennummer (route_short_name).
+	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
 	Beispiel: $0 -g 1S
 
-   -g auto
+   -g auto [agency] [route_short_name]
 
 	Generiert GPX-Dateien für jede Variante (shape) einer bestimmten Route.
 	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
-	Syntax: $0 -g auto [agency] [route_short_name]
 	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
 	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
 	Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
 
-   -g singleauto
+   -g singleauto [agency] [route_short_name] [shape_id]
 
 	Generiert GPX-Dateien für EINE Variante (shape) einer bestimmten Route.
 	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
-	Syntax: $0 -g singleauto [agency] [route_short_name] [shape_id]
 	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
 	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
 	Die Shape-ID kann mit der Option -s [route_short_name] ermittelt werden.
@@ -149,21 +148,21 @@ Options:
 	benötigt einen weiteren Parameter in Form eines Haltestellennamens.
 	Beispiel: $0 -o "Berlin HBF"
 
-   -s [param]
+   -s [route_short_name]
 
 	(shapes) Analysiert die verschiedenen Fahrtvarianten einer Route.
-	benötigt einen weiteren Parameter in Form einer Routennummer.
+	Benötigt einen weiteren Parameter in Form einer Routennummer (route_short_name).
+	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
 	Beispiel: $0 -s 1S
 
    -s single
 
 	Listet Informationen zu einer bestimmten Shape-ID auf.
 
-   -s singleauto
+   -s singleauto [agency] [route_short_name] [shape_id]
 
 	Listet Informationen zu einer bestimmten Shape-ID auf. 
 	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
-	Syntax: $0 -s singleauto [agency] [route_short_name] [shape_id] 
 	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
 	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
 	Die Shape-ID kann mit der Option -s [route_short_name] ermittelt werden.
