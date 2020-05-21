@@ -91,10 +91,14 @@ operatorabfrage() {
 usage() {
 cat <<EOU
 
-Syntax:	$0 [options] [param]
-	$0 [option] [param] [option] [param]
+Syntax Beispiele:
 
-$0 analysiert GTFS-Daten (Sollfahrplandaten). Erstellte GPX-Dateien befinden sich im (neu erstellten) Unterordner ./gpx und die entsprechenden Analyseergebnisse im (neu erstellten) Unterordner ./results 
+	$0 [options] [param]
+	$0 [option] [param] [option] [param]
+	$0 -s singleauto [agency] [route_short_name] [shape_id]
+	$0 -g singleauto [agency] [route_short_name] [shape_id]
+
+$0 analysiert GTFS-Daten (Sollfahrplandaten). Erstellte GPX-Dateien befinden sich im (neu erstellten) Unterordner ./gpx und die entsprechenden Analyseergebnisse im (neu erstellten) Unterordner ./results. Falls das Format der GTFS-Daten angeglichen wird, werden die Originaldateien in den (neu erstellten) Unterordner ./backup kopiert.
 
 Für die Analyse stehen folgende Optionen zur Verfügung:
  
@@ -578,8 +582,6 @@ bothsingle() {
       source ./verzweigung.tmp
       read -p "Bitte Routennummer eingeben: " OPTARG
       read -p "Bitte Shape-ID eingeben: " shapeid
-
-      # Hier könnte noch Überprüfung hin, wenn agencyanswer,OPTARG und shapeid leer sind, dann ...
 
       bothsingle
 
