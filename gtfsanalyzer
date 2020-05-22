@@ -174,6 +174,14 @@ Options:
 	benötigt einen weiteren Parameter in Form einer Routennummer.
 	Beispiel: $0 -t 1S
 
+   -t shapeid
+
+	Analysiert alle Trips einer bestimmten shape_id eines bestimmten Verkehrsunternehmens (agency).
+
+   -t tripid
+
+	Analysiert EINEN Trip anhand seiner trip_id eines bestimmten Verkehrsunternehmens (agency).
+
 EOU
 }
 # *** Funktionen definieren Ende ***
@@ -349,43 +357,106 @@ do
 
   ;;
 
-  # *** Ermittlung aller Trips einer bestimmten Route ***
+  # *** Ermittlung aller Trips einer bestimmten Route/einer ShapeID/eines einzelnen Trips ***
 
   t) operatorabfrage
      read -p "Bitte Operator (agency) auswählen: " agencyanswer
      source ./verzweigung.tmp
-     # route_id ermitteln
-     routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+
+     unset buildfromshapes
+     unset onlyonetrip
+
+     if [ "$OPTARG" == "shapeid" ]; then
+
+      buildfromshapes="yes"
+      read -p "Bitte Liniennummer (route_short_name) eingeben: " OPTARG
+      read -p "Bitte Shape-ID eingeben: " onlyshape
+      # route_id ermitteln
+      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+      checkshapeid="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+      if [ "$(echo "$checkshapeid" | grep "$onlyshape" | wc -l)" == "0" ]; then
+       echo "Keine passende Shape-ID zur Route gefunden!" && break
+      fi
+
+     elif [ "$OPTARG" == "tripid" ]; then
+
+      onlyonetrip="yes"
+      read -p "Bitte Liniennummer (route_short_name) eingeben: " OPTARG
+      read -p "Bitte Trip-ID eingeben: " onlytrip
+      # route_id ermitteln
+      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+
+     else
+
+      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+
+     fi
 
     if [ -n "$routeid" ]; then
 
-     tripidlist="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
-     # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
-     shapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+     if [ "$buildfromshapes" == "yes" ]; then
+      # uniq -f: Das Feld wird nicht ausgewertet.
+      tripidlist="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$onlyshape"',[^,]*,.*$/p' ./trips.txt | cut -d, -f3)"
+      shapeidlist="$onlyshape"
+     elif [ "$onlyonetrip" == "yes" ]; then
+      tripidcheck="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
+
+      # Überprüfung der TripID
+      if [ "$(echo "$tripidcheck" | grep "$onlytrip" | wc -l)" == "0" ]; then
+       echo "Keine passende TripID gefunden!" && break
+      else
+       tripidlist="$onlytrip"
+       shapeidlist="$(grep ','"$onlytrip"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+      fi
+
+     else
+      tripidlist="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
+      # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
+      shapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+     fi
 
      echo ""
-     echo "** Ermittlung aller Trips einer Route *" | tee ./analysis.tmp
+     if [ "$buildfromshapes" == "yes" ]; then
+      echo "** Ermittlung aller Trips einer ShapeID **" | tee ./analysis.tmp
+     elif [ "$onlyonetrip" == "yes" ]; then
+      echo "********* Ermittlung eines Trips *********" | tee ./analysis.tmp
+     else
+      echo "*** Ermittlung aller Trips einer Route ***" | tee ./analysis.tmp
+     fi
      anztripid="$(echo "$tripidlist" | wc -l)"
      anzshapeid="$(echo "$shapeidlist" | wc -l)"
      echo "Ausgewertete Route: $OPTARG" | tee -a ./analysis.tmp
      echo "Operator (agency): $agencyname" | tee -a ./analysis.tmp
-     echo "$anztripid Trips gefunden (trip_id)." | tee -a ./analysis.tmp
-     echo "$anzshapeid Fahrtvarianten gefunden (shape_id):" | tee -a ./analysis.tmp
+     echo "$anztripid Trip(s) gefunden (trip_id)." | tee -a ./analysis.tmp
+     echo "$anzshapeid Fahrtvariante(n) gefunden (shape_id):" | tee -a ./analysis.tmp
      echo $shapeidlist | tee -a ./analysis.tmp
-     echo "***************************************" | tee -a ./analysis.tmp
+     echo "*******************************************" | tee -a ./analysis.tmp
      echo ""
-     echo "Die folgende Auswertung kann unter Umständen mehrere Minuten dauern."
-     read -p "Sollen wirklich alle Routen jetzt ausgewertet werden (j/n)? " tripantwort
-     case "$tripantwort" in
-       Ja|ja|J|j|"") echo "Bearbeitung der Tripauswertung wird fortgesetzt ..."
-        ;;
-       Nein|nein|N|n) mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencyname".txt
-                      break
-        ;;
-       *) echo "Fehlerhafte Eingabe!" && break
-        ;;
-     esac
-     echo ""
+
+     # Abfrage soll immer ausgeführt werden, außer bei $0 -t tripid
+     if [ ! "$onlyonetrip" == "yes" ]; then
+      echo "Die folgende Auswertung kann unter Umständen mehrere Minuten dauern."
+      read -p "Sollen wirklich alle Routen jetzt ausgewertet werden (j/n)? " tripantwort
+      case "$tripantwort" in
+        Ja|ja|J|j|"") echo "Bearbeitung der Tripauswertung wird fortgesetzt ..."
+         ;;
+        Nein|nein|N|n) # Angefangene Analysedatei wird verschoben. 
+
+             if [ "$buildfromshapes" == "yes" ]; then
+              echo "Analyse wurde nicht durchgeführt." >>./analysis.tmp
+              mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplistfromshape_"$agencyname".txt
+             else
+              echo "Analyse wurde nicht durchgeführt." >>./analysis.tmp
+              mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencyname".txt
+             fi
+
+           break
+         ;;
+        *) echo "Fehlerhafte Eingabe!" && break
+         ;;
+      esac
+      echo ""
+     fi
 
      for ((a=1 ; a<=(("$anztripid")) ; a++)); do
 
@@ -393,7 +464,7 @@ do
 
       echo "Trip ${a}:" | tee -a ./analysis.tmp
       tripid="$(echo "$tripidlist" | sed -n ''$a'p')"
-      trip="$(grep "$tripid" ./stop_times.txt)"
+      trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
       shapeid="$(grep "$tripid" ./trips.txt | cut -d, -f8)"
       serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
 
@@ -411,7 +482,15 @@ do
        # Zwischenhalte werden nur in Datei geschrieben
        if [ "$b" == "1" ]; then
         echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\3 '"$haltestelle"'/'
-        echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/        \3 '"$haltestelle"'/' >>./analysis.tmp
+
+         # Diese Verzweigung ist nur für saubere Formatierung der Anzeige der ersten Haltestelle
+         # (mit Uhrzeit) in der Datei analysis.tmp
+         if  [ "$(echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\3 '"$haltestelle"'/' | grep '^..:' | wc -l)" == "0" ]; then
+          echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/        \3 '"$haltestelle"'/' >>./analysis.tmp
+         else
+          echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/         \3 '"$haltestelle"'/' >>./analysis.tmp
+         fi
+
        elif [ "$b" == "$anzstopsinroute" ]; then
         echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\2 '"$haltestelle"'/'
         echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\2         '"$haltestelle"'/' >>./analysis.tmp
@@ -449,7 +528,7 @@ do
       echo "Shape-ID: $shapeid" | tee -a ./analysis.tmp
       echo "Service-ID: $serviceid" | tee -a ./analysis.tmp
       echo "Haltestellen in Route: $anzstopsinroute" | tee -a ./analysis.tmp
-      echo "***************************************" | tee -a ./analysis.tmp
+      echo "*******************************************" | tee -a ./analysis.tmp
 
       # Nur zum debugging verwenden:
       #read -p "Weiter"
@@ -457,7 +536,13 @@ do
      # Ende der a-Schleife
      done
 
-     mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencyname".txt
+     if [ "$buildfromshapes" == "yes" ]; then
+      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplistfromshape_"$agencyname".txt
+     elif [ "$onlyonetrip" == "yes" ]; then
+      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_onetrip_"$agencyname".txt
+     else
+      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencyname".txt
+     fi
 
     else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
     fi
@@ -513,7 +598,7 @@ bothsingle() {
         # uniq -f: Das Feld wird nicht ausgewertet.
         shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
         tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
-        trip="$(grep "$tripid" ./stop_times.txt)"
+        trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
         serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
  
         anzstopsinroute="$(echo "$trip" | wc -l)"
@@ -636,7 +721,7 @@ bothsingle() {
       # uniq -f: Das Feld wird nicht ausgewertet.
       shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
       tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
-      trip="$(grep "$tripid" ./stop_times.txt)"
+      trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
       serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
  
       anzstopsinroute="$(echo "$trip" | wc -l)"
@@ -789,7 +874,7 @@ fi
        # uniq -f: Das Feld wird nicht ausgewertet.
        shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
        tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
-       trip="$(grep "$tripid" ./stop_times.txt)"
+       trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
       
        # Haltestellen werden als Wegepunkte in GPX-Datei geschrieben.
        anzstopsinroute="$(echo "$trip" | wc -l)"
