@@ -70,6 +70,11 @@ rm -f ./routesandtrips.tmp
 rm -f ./tripidlist.tmp
 rm -f ./stopidlist.tmp
 rm -f ./allehaltestellen.tmp
+rm -f ./htmlfirstlines.tmp
+rm -f ./htmlformat.tmp
+rm -f ./htmlsortlist.tmp
+rm -f ./anmerkungen.tmp
+rm -f ./htmldatei.tmp
 
 # *** Funktionen ***
 operatorabfrage() {
@@ -182,6 +187,13 @@ Options:
 
 	Analysiert EINEN Trip anhand seiner trip_id eines bestimmten Verkehrsunternehmens (agency).
 
+   -w [param]
+
+	(website) Analysiert alle Trips einer Route eines bestimmten Verkehrsunternehmens (agency)
+        und erstellt eine HTML-Seite.
+	benötigt einen weiteren Parameter in Form einer Routennummer [route_short_name].
+	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+
 EOU
 }
 # *** Funktionen definieren Ende ***
@@ -248,7 +260,7 @@ echo ""
 
 
 
-while getopts ho:t:s:g:l: opt
+while getopts ho:t:s:g:l:w: opt
 
 do 
  case $opt in
@@ -311,7 +323,7 @@ do
       stoplon="$(echo "$stopline" | sed 's/^[^,]*,\"\([^\"]*\)\"\([^,]*\),\"\([^\"]*\)\"[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,\"\([^\"]*\)\"[^,]*,.*$/\5/')"
       tripidlist="$(grep "$stopid" ./stop_times.txt | sort | cut -d, -f1)"
       # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
-      dateiname="$(echo ${stopname,,} | sed 's/ /_/g')"
+      dateiname="$(echo ${stopname,,} | sed 's/ /_/g;s/\//_/g')"
 
       echo "Name der Haltestelle: ${stopname}" | tee -a ./analysis.tmp
       echo "Stop-ID: ${stopid}" | tee -a ./analysis.tmp
@@ -465,42 +477,48 @@ do
       echo "Trip ${a}:" | tee -a ./analysis.tmp
       tripid="$(echo "$tripidlist" | sed -n ''$a'p')"
       trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
-      shapeid="$(grep "$tripid" ./trips.txt | cut -d, -f8)"
+      shapeid="$(grep ','"${tripid}"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),.*$/\1/')"
       serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
 
       anzstopsinroute="$(echo "$trip" | wc -l)"
       for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
-       stopline="$(echo "$trip" | sed -n ''$b'p')"
+       # Das Format der Uhrzeit wird von *:**:** auf 0*:**:** umgeschrieben.
+       stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/,\(.:..:..\)/,0\1/g')"
+
        # Es wird nur die Zeit der ersten Haltestelle benötigt. Da Variable zu Beginn leer (unset;siehe oben), wird sie beim ersten Fund neu belegt und bleibt bestehen bis zum Ende der for-Schleife.
        if [ -z "$abfahrtstart" ]; then
         abfahrtstart="$(echo "$stopline" | cut -d, -f3 | sed 's/24\(:..:..\)/00\1/')"
        fi
        haltestellenid="$(echo "$stopline" | cut -d, -f4)"
        haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
+   
+       # Hier wird ein / im Haltestellennamen gequotet!
+       if [ "$(echo "$haltestelle" | grep '/' | wc -l)" -gt "0" ]; then
+        haltestelle="$(echo "$haltestelle" | sed 's/\//\\\//')"
+       fi
 
        # Hier werden die erste und letzte Zeile angezeigt und in .tmp-Datei geschrieben.
        # Zwischenhalte werden nur in Datei geschrieben
        if [ "$b" == "1" ]; then
-        echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\3 '"$haltestelle"'/'
+        echo "$stopline" | sed 's/\(^[^,]*\),\([^,]*\),\([^,]*\),\(.*$\)/\3 '"$haltestelle"'/'
+        echo "$stopline" | sed 's/\(^[^,]*\),\([^,]*\),\([^,]*\),\(.*$\)/         \3 '"$haltestelle"'/' >>./analysis.tmp
 
-         # Diese Verzweigung ist nur für saubere Formatierung der Anzeige der ersten Haltestelle
-         # (mit Uhrzeit) in der Datei analysis.tmp
-         if  [ "$(echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\3 '"$haltestelle"'/' | grep '^..:' | wc -l)" == "0" ]; then
-          echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/        \3 '"$haltestelle"'/' >>./analysis.tmp
-         else
-          echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/         \3 '"$haltestelle"'/' >>./analysis.tmp
-         fi
-
+       # Letzte Zeile
        elif [ "$b" == "$anzstopsinroute" ]; then
-        echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\2 '"$haltestelle"'/'
-        echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\2         '"$haltestelle"'/' >>./analysis.tmp
+        echo "$stopline" | sed 's/\(^[^,]*\),\([^,]*\),\([^,]*\),\(.*$\)/\2 '"$haltestelle"'/'
+        echo "$stopline" | sed 's/\(^[^,]*\),\([^,]*\),\([^,]*\),\(.*$\)/\2          '"$haltestelle"'/' >>./analysis.tmp
         # Wird nur zur Auswertung bei der letzten Haltestelle benötigt.
         # für die Ausgaben: "Dauer der Fahrt" und "Ausgewertete Trip-ID".
         # Mit sed wird Datumsformat der Stunden von 24 Uhr auf 00 Uhr geändert, sonst passt Ergebnis nicht.
         ankunftundende="$(echo "$stopline" | cut -d, -f2 | sed 's/24\(:..:..\)/00\1/')"
+
+       # Alle anderen Zeilen, außer die erste und letzte Zeile.
        else
-        echo "$stopline" | sed 's/\(^.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*\),\(.*$\)/\2 \3 '"$haltestelle"'/' >>./analysis.tmp
+
+        echo "$stopline" | sed 's/\(^[^,]*\),\([^,]*\),\([^,]*\),\(.*$\)/\2 \3 '"$haltestelle"'/' >>./analysis.tmp
+
        fi
+
       done
 
       verkehrstage="$(grep '^'"$serviceid"',' ./calendar.txt | cut -d, -f2-8 | sed 's/,/ /g;s/1/x/g;s/0/-/g')"
@@ -1039,6 +1057,288 @@ fi
 
   ;;
 
+  w) # *** HTML-Seitenerstellung ***
+
+     operatorabfrage
+     read -p "Bitte Operator (agency) auswählen: " agencyanswer
+     source ./verzweigung.tmp
+
+     routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+
+    if [ -n "$routeid" ]; then
+
+     tripidlist="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
+
+     echo "Daten werden gefiltert ..."
+
+     # *** Liste der Trips wird gefiltert ***
+
+     # Es wird in zwei Dateien geschrieben.
+     # Die jeweils erste Zeile in htmlfirstlines.tmp und alle Zeilen in htmlformat.tmp
+     anztripid="$(echo "$tripidlist" | wc -l)"
+     for ((a=1 ; a<=(("$anztripid")) ; a++)); do
+
+      tripid="$(echo "$tripidlist" | sed -n ''${a}'p')"
+      trip="$(grep '^'"$tripid"',' ./stop_times.txt | cut -d, -f1,3,4)"
+      shapeid="$(grep ','"${tripid}"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),.*$/\1/')"
+      serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
+      zwischenliste="$(echo "$trip" | sed 's/^\(.*\)$/\1,'$shapeid','$serviceid',/')"
+      # Das Format der Uhrzeit wird z.B von 0:00:00 in 00:00:00 umgeschrieben.
+      echo "$zwischenliste" | sed 's/\(^.*,\)\(.:..:..,.*,.*,.*,$\)/\10\2/' >>./htmlformat.tmp
+      cat ./htmlformat.tmp | grep '^'"$tripid"',' | sed -n '1p' | sed 's/://g' >>./htmlfirstlines.tmp
+
+     done
+
+     echo "Daten werden sortiert ..."
+
+     # Es werden die Uhrzeiten in htmlfirstlines.tmp sortiert.
+     firstlines="$(cat ./htmlfirstlines.tmp | sort -t, -k2 -n | sed 's/\(^.*,\)\(..\)\(..\)\(..\)\(,.*,.*,.*,$\)/\1\2:\3:\4\5/')"
+
+     # In dieser Schleife wird anhand von firstlines der komplette Inhalt von htmlformat.tmp sortiert.
+     for ((b=1 ; b<=(("$anztripid")) ; b++)); do
+      sorttripid=$(grep "$(echo "$firstlines" | sed -n ''${b}'p')" ./htmlformat.tmp | cut -d, -f1)
+      grep '^'"$sorttripid"',' ./htmlformat.tmp >>./htmlsortlist.tmp
+     done
+
+     # Es liegt nun eine Komma-separierte, sortierte Liste aller Trips einer Route vor, die für weitere Bearbeitungen genutzt werden kann (htmlsortlist.tmp).
+     # TripID, Depature Time, StopID, ShapeID, ServiceID
+     # *** Sortierung Ende ***
+
+     echo "HTML-Seite wird generiert ..."
+
+     shapeidlist="$(cut -d, -f4 ./htmlsortlist.tmp | sort | uniq)"
+     alllinesinsortlist="$(cat ./htmlsortlist.tmp | wc -l)"
+     anzshapeid="$(echo "$shapeidlist" | wc -l)"
+
+     echo "<!DOCTYPE html>" >>./htmldatei.tmp
+     echo "<html lang=\"de\">" >>./htmldatei.tmp
+     echo " <head>" >>./htmldatei.tmp
+     echo " <meta content=\"text/html; charset=utf-8\" http-equiv=\"content-type\">" >>./htmldatei.tmp
+     echo " <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" >>./htmldatei.tmp
+     echo "  <style>" >>./htmldatei.tmp
+     echo "   a {" >>./htmldatei.tmp
+     echo "    color: #555555;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "  a:visited {" >>./htmldatei.tmp
+     echo "    color: #9d6554;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   a:hover {" >>./htmldatei.tmp
+     echo "    color: #884d3b;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   a:active {" >>./htmldatei.tmp
+     echo "    color: #000000;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   body {" >>./htmldatei.tmp
+     echo "    font-size: 8pt;" >>./htmldatei.tmp
+     echo "    font-family: 'Verdana', sans-serif;" >>./htmldatei.tmp
+     echo "    color: #444444;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   div.shapetab {" >>./htmldatei.tmp
+     echo "    padding: 12em 15em 1em 2em;" >>./htmldatei.tmp
+     echo "    background-color: #f6f5f4;" >>./htmldatei.tmp
+     echo "    border-radius: 10px;" >>./htmldatei.tmp
+     echo "    display: inline-block;" >>./htmldatei.tmp
+     echo "    margin: 1em 0;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   table { " >>./htmldatei.tmp
+     echo "    margin-bottom: 20px;" >>./htmldatei.tmp
+     echo "    border: 1px solid #ddd;" >>./htmldatei.tmp
+     echo "    table-layout: fixed;" >>./htmldatei.tmp
+     echo "    border-collapse: collapse;" >>./htmldatei.tmp
+     echo "    background-color: transparent;" >>./htmldatei.tmp
+     echo "    font-size: 8pt;" >>./htmldatei.tmp
+     echo "    text-align: center;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   tr:nth-child(even) {" >>./htmldatei.tmp
+     echo "    background-color: #ececec;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   tr:first-of-type {" >>./htmldatei.tmp
+     echo "    height: 10em;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   td {" >>./htmldatei.tmp
+     echo "    background-color: transparent;" >>./htmldatei.tmp
+     echo "    padding: .6em;" >>./htmldatei.tmp
+     echo "    border: 1px solid #ddd;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   th {" >>./htmldatei.tmp
+     echo "    transform: rotate(-45deg);" >>./htmldatei.tmp
+     echo "    border-top: 1px solid transparent;" >>./htmldatei.tmp
+     echo "    border-left: 1px solid transparent;" >>./htmldatei.tmp
+     echo "    border-right: 1px solid transparent;" >>./htmldatei.tmp
+     echo "    font-weight: normal;" >>./htmldatei.tmp
+     echo "    position: relative;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   th.wochentage {" >>./htmldatei.tmp
+     echo "    transform: rotate(-90deg);" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   td.transparent {" >>./htmldatei.tmp
+     echo "    color: transparent;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   th span {" >>./htmldatei.tmp
+     echo "    position: absolute;" >>./htmldatei.tmp
+     echo "    bottom: 1.5em;" >>./htmldatei.tmp
+     echo "    left: -1em;" >>./htmldatei.tmp
+     echo "    white-space: pre;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   th.wochentage span {" >>./htmldatei.tmp
+     echo "    position: absolute;" >>./htmldatei.tmp
+     echo "    bottom: 4.2em;" >>./htmldatei.tmp
+     echo "    left: -3em;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   th.tripid span {" >>./htmldatei.tmp
+     echo "    transform: rotate(45deg);" >>./htmldatei.tmp
+     echo "    margin-bottom: .2em;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   th.anmerkungen span {" >>./htmldatei.tmp
+     echo "    transform: rotate(-45deg);" >>./htmldatei.tmp
+     echo "    bottom: 2.3em;" >>./htmldatei.tmp
+     echo "    left: -2.3em;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   footer {" >>./htmldatei.tmp
+     echo "   margin: 1em 2em;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "  </style>" >>./htmldatei.tmp
+     echo " </head>" >>./htmldatei.tmp
+     echo " <body>" >>./htmldatei.tmp
+     echo " <header>" >>./htmldatei.tmp
+     echo "  <h1>Fahrplan Linie ${OPTARG}</h1>" >>./htmldatei.tmp
+     echo "  <h2>Agency: ${agencyname}</h2>" >>./htmldatei.tmp
+     echo " </header>" >>./htmldatei.tmp
+     echo " <main>" >>./htmldatei.tmp
+
+     # Schleife ShapeIDs werden verarbeitet.
+     for ((c=1 ; c<=(("$anzshapeid")) ; c++)); do
+
+      rm -f ./anmerkungen.tmp
+      shapeid="$(echo "$shapeidlist" | sed -n ''${c}'p')"
+      # Trips der entsprechenden ShapeID werden gefiltert.
+      tripsfromshapelist="$(cat ./htmlsortlist.tmp | grep ','$shapeid',' | cut -d, -f1 | uniq)"
+      anztripsfromshape="$(echo "$tripsfromshapelist" | wc -l)"
+      echo "  <div class=\"shapetab\">" >>./htmldatei.tmp
+      echo "  <h2>Fahrtvariante ${c}:</h2>" >>./htmldatei.tmp
+      echo "  <h3>ShapeID: ${shapeid}</h3>" >>./htmldatei.tmp
+      echo "  <table>" >>./htmldatei.tmp
+
+       # Trips der entsprechenden ShapeID werden verarbeitet.
+       for ((d=1 ; d<=(("$anztripsfromshape")) ; d++)); do
+        tripid="$(echo "$tripsfromshapelist" | sed -n ''${d}'p')"
+        trip="$(grep '^'$tripid',' ./htmlsortlist.tmp)"
+
+        echo "   <tr>" >>./htmldatei.tmp
+
+        anzhaltestellen="$(echo "$trip" | wc -l)"
+
+        # Vor der ersten Zeile werden die Haltestellennamen eingefügt.
+        if [ "$d" == "1" ]; then
+  
+         echo "    <th class=\"wochentage\"><span>Mo</span></th>" >>./htmldatei.tmp
+         echo "    <th class=\"wochentage\"><span>Di</span></th>" >>./htmldatei.tmp
+         echo "    <th class=\"wochentage\"><span>Mi</span></th>" >>./htmldatei.tmp
+         echo "    <th class=\"wochentage\"><span>Do</span></th>" >>./htmldatei.tmp
+         echo "    <th class=\"wochentage\"><span>Fr</span></th>" >>./htmldatei.tmp
+         echo "    <th class=\"wochentage\"><span>Sa</span></th>" >>./htmldatei.tmp
+         echo "    <th class=\"wochentage\"><span>So</span></th>" >>./htmldatei.tmp
+         # Spalte mit Anmerkungen
+         echo "    <th class=\"anmerkungen\"><span>Anm.</span></th>" >>./htmldatei.tmp
+         # Spalte mit TripIDs
+         echo "    <th class=\"tripid\"><span>TripID</span></th>" >>./htmldatei.tmp
+
+         for ((f=1 ; f<=(("$anzhaltestellen")) ; f++)); do
+          stopid="$(echo "$trip" | sed -n ''${f}'p' | cut -d, -f3)"
+          haltestelle="$(grep "$stopid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
+          echo "    <th><span>${haltestelle}</span></th>" >>./htmldatei.tmp
+         done
+         echo "   </tr>" >>./htmldatei.tmp
+         echo "   <tr>" >>./htmldatei.tmp
+
+        fi
+
+        serviceid="$(echo "$trip" | cut -d, -f5 | uniq)"
+        serviceline="$(grep '^'$serviceid',' ./calendar.txt)"
+
+        if [ "$(echo "$serviceline" | cut -d, -f2)" == "1" ]; then
+         echo "    <td class=\"calresult\">●</td>" >>./htmldatei.tmp
+        else echo "    <td class=\"calresult transparent\">●</td>" >>./htmldatei.tmp
+        fi
+        if [ "$(echo "$serviceline" | cut -d, -f3)" == "1" ]; then
+         echo "    <td class=\"calresult\">●</td>" >>./htmldatei.tmp
+        else echo "    <td class=\"calresult transparent\">●</td>" >>./htmldatei.tmp
+        fi
+        if [ "$(echo "$serviceline" | cut -d, -f4)" == "1" ]; then
+         echo "    <td class=\"calresult\">●</td>" >>./htmldatei.tmp
+        else echo "    <td class=\"calresult transparent\">●</td>" >>./htmldatei.tmp
+        fi
+        if [ "$(echo "$serviceline" | cut -d, -f5)" == "1" ]; then
+         echo "    <td class=\"calresult\">●</td>" >>./htmldatei.tmp
+        else echo "    <td class=\"calresult transparent\">●</td>" >>./htmldatei.tmp
+        fi
+        if [ "$(echo "$serviceline" | cut -d, -f6)" == "1" ]; then
+         echo "    <td class=\"calresult\">●</td>" >>./htmldatei.tmp
+        else echo "    <td class=\"calresult transparent\">●</td>" >>./htmldatei.tmp
+        fi
+        if [ "$(echo "$serviceline" | cut -d, -f7)" == "1" ]; then
+         echo "    <td class=\"calresult\">●</td>" >>./htmldatei.tmp
+        else echo "    <td class=\"calresult transparent\">●</td>" >>./htmldatei.tmp
+        fi
+        if [ "$(echo "$serviceline" | cut -d, -f8)" == "1" ]; then
+         echo "    <td class=\"calresult\">●</td>" >>./htmldatei.tmp
+        else echo "    <td class=\"calresult transparent\">●</td>" >>./htmldatei.tmp
+        fi
+
+      verkehrst_plus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,1' | sed 's/^[^,]*,\([^,]*\),1/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/' | sort)"
+      verkehrst_minus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,2' | sed 's/^[^,]*,\([^,]*\),2/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/' | sort)"
+
+        # Zelle mit Anmerkungen
+        if [ -n "$verkehrst_plus" -o -n "$verkehrst_minus" ]; then
+         echo "    <td>${d}</td>" >>./htmldatei.tmp
+          if [ -n "$verkehrst_plus" ]; then
+           echo "<p>${d}: Zusätzliche Verkehrstage:<br>" >>./anmerkungen.tmp
+           echo "$verkehrst_plus</p>" >>./anmerkungen.tmp
+          fi
+          if [ -n "$verkehrst_minus" ]; then
+           echo "<p>${d}: Fährt nicht an diesen Tagen:<br>" >>./anmerkungen.tmp
+           echo "$verkehrst_minus</p>" >>./anmerkungen.tmp
+          fi
+        fi
+
+        # Zelle mit TripID
+        echo "    <td>${tripid}</td>" >>./htmldatei.tmp
+
+        # Hier werden die Uhrzeiten in HTML-Seite eingefügt.
+        for ((e=1 ; e<=(("$anzhaltestellen")) ; e++)); do
+         tripline="$(echo "$trip" | sed -n ''${e}'p')"
+         stopid="$(echo "$tripline" | cut -d, -f3)"
+         echo "$tripline" | cut -d, -f2 | sed 's/\(..:..\):../    <td>\1<\/td>/' >>./htmldatei.tmp
+        done
+ 
+        echo "   </tr>" >>./htmldatei.tmp
+
+       done
+
+       echo "  </table>" >>./htmldatei.tmp
+       cat ./anmerkungen.tmp >>./htmldatei.tmp
+       echo "  </div>" >>./htmldatei.tmp
+
+     done
+
+     echo " </main>" >>./htmldatei.tmp
+     echo " <footer>" >>./htmldatei.tmp
+     echo "  <p>Diese Seite wurde erstellt durch $(basename ${0})</p>" >>./htmldatei.tmp
+     echo "  <p>Den Programmcode und weitere Informationen zum Programm gtfsanalyzer finden Sie unter:<br><a href=\"https://github.com/carstenha/gtfsanalyzer\">https://github.com/carstenha/gtfsanalyzer</a></p>" >>./htmldatei.tmp
+     echo " </footer>" >>./htmldatei.tmp
+     echo " </body>" >>./htmldatei.tmp
+     echo "</html>" >>./htmldatei.tmp
+
+     # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
+     agencynameforfile="$(echo ${agencyname,,} | sed 's/ /_/g;s/\//_/g')"
+     mv -i ./htmldatei.tmp "./results/${OPTARG}_${agencynameforfile}.html"
+
+
+    else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
+    fi
+
+  ;;
+
   # Hier weitere Optionen
 
  esac
@@ -1053,4 +1353,9 @@ rm -f ./routesandtrips.tmp
 rm -f ./tripidlist.tmp
 rm -f ./stopidlist.tmp
 rm -f ./allehaltestellen.tmp
+rm -f ./htmlfirstlines.tmp
+rm -f ./htmlformat.tmp
+rm -f ./htmlsortlist.tmp
+rm -f ./anmerkungen.tmp
+rm -f ./htmldatei.tmp
 
