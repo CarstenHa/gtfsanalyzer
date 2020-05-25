@@ -555,12 +555,14 @@ do
      # Ende der a-Schleife
      done
 
+     # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
+     agencynameforfile="$(echo ${agencyname,,} | sed 's/ /_/g;s/\//_/g')"
      if [ "$buildfromshapes" == "yes" ]; then
-      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplistfromshape_"$agencyname".txt
+      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplistfromshape_"$agencynameforfile".txt
      elif [ "$onlyonetrip" == "yes" ]; then
-      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_onetrip_"$agencyname".txt
+      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_onetrip_"$agencynameforfile".txt
      else
-      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencyname".txt
+      mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencynameforfile".txt
      fi
 
     else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
@@ -798,7 +800,9 @@ bothsingle() {
      # Ende der c-Schleife
      done
 
-     mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_tripvarianten_"$agencyname".txt
+     # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
+     agencynameforfile="$(echo ${agencyname,,} | sed 's/ /_/g;s/\//_/g')"
+     mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_tripvarianten_"$agencynameforfile".txt
 
     else echo "${0} -s: Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden. (Fehlercode 0105)" | tee -a ./results/"$datenow"_error.log
     fi
@@ -939,7 +943,9 @@ fi
       echo "${0} -g: Keine passende Routenvariante (Linie ${OPTARG}) zur angegebenen Shape-ID ${4} gefunden. (Fehlercode 0201)" | tee -a ./analysis.tmp -a ./results/"$datenow"_error.log
      fi
 
-     mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_generategpx_"$agencyname".txt
+     # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
+     agencynameforfile="$(echo ${agencyname,,} | sed 's/ /_/g;s/\//_/g')"
+     mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_generategpx_"$agencynameforfile".txt
 
     else 
      echo "${0} -g: Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden. (Fehlercode 0202)" | tee -a ./results/"$datenow"_error.log
