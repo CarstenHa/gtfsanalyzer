@@ -483,11 +483,11 @@ do
       anzstopsinroute="$(echo "$trip" | wc -l)"
       for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
        # Das Format der Uhrzeit wird von *:**:** auf 0*:**:** umgeschrieben.
-       stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/,\(.:..:..\)/,0\1/g')"
+       stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/,\(.:..:..\)/,0\1/g;s/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g')"
 
        # Es wird nur die Zeit der ersten Haltestelle benötigt. Da Variable zu Beginn leer (unset;siehe oben), wird sie beim ersten Fund neu belegt und bleibt bestehen bis zum Ende der for-Schleife.
        if [ -z "$abfahrtstart" ]; then
-        abfahrtstart="$(echo "$stopline" | cut -d, -f3 | sed 's/24\(:..:..\)/00\1/')"
+        abfahrtstart="$(echo "$stopline" | cut -d, -f3)"
        fi
        haltestellenid="$(echo "$stopline" | cut -d, -f4)"
        haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
@@ -510,7 +510,7 @@ do
         # Wird nur zur Auswertung bei der letzten Haltestelle benötigt.
         # für die Ausgaben: "Dauer der Fahrt" und "Ausgewertete Trip-ID".
         # Mit sed wird Datumsformat der Stunden von 24 Uhr auf 00 Uhr geändert, sonst passt Ergebnis nicht.
-        ankunftundende="$(echo "$stopline" | cut -d, -f2 | sed 's/24\(:..:..\)/00\1/')"
+        ankunftundende="$(echo "$stopline" | cut -d, -f2)"
 
        # Alle anderen Zeilen, außer die erste und letzte Zeile.
        else
@@ -621,10 +621,10 @@ bothsingle() {
  
         anzstopsinroute="$(echo "$trip" | wc -l)"
         for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
-         stopline="$(echo "$trip" | sed -n ''$b'p')"
+         stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/\(^.*,\)\(.:..:..,.*,.*,.*,$\)/\10\2/;s/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g')"
          # Es wird nur die Zeit der ersten Haltestelle benötigt. Da Variable zu Beginn leer (unset;siehe oben), wird sie beim ersten Fund neu belegt und bleibt bestehen bis zum Ende der for-Schleife.
          if [ -z "$abfahrtstart" ]; then
-          abfahrtstart="$(echo "$stopline" | cut -d, -f3 | sed 's/24\(:..:..\)/00\1/')"
+          abfahrtstart="$(echo "$stopline" | cut -d, -f3)"
          fi
          haltestellenid="$(echo "$stopline" | cut -d, -f4)"
          haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
@@ -637,8 +637,7 @@ bothsingle() {
           echo "Stop ${b}: $haltestelle" | tee -a ./analysis.tmp
           # Wird nur zur Auswertung bei der letzten Haltestelle benötigt.
           # für die Ausgaben: "Dauer der Fahrt" und "Ausgewertete Trip-ID".
-          # Mit sed wird Datumsformat der Stunden von 24 Uhr auf 00 Uhr geändert, sonst passt Ergebnis nicht.
-          ankunftundende="$(echo "$stopline" | cut -d, -f2 | sed 's/24\(:..:..\)/00\1/')"
+          ankunftundende="$(echo "$stopline" | cut -d, -f2)"
          else
           echo "Stop ${b}: $haltestelle" >>./analysis.tmp
          fi
@@ -744,10 +743,10 @@ bothsingle() {
  
       anzstopsinroute="$(echo "$trip" | wc -l)"
       for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
-       stopline="$(echo "$trip" | sed -n ''$b'p')"
+       stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/\(^.*,\)\(.:..:..,.*,.*,.*,$\)/\10\2/;s/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g')"
        # Es wird nur die Zeit der ersten Haltestelle benötigt. Da Variable zu Beginn leer (unset;siehe oben), wird sie beim ersten Fund neu belegt und bleibt bestehen bis zum Ende der for-Schleife.
        if [ -z "$abfahrtstart" ]; then
-        abfahrtstart="$(echo "$stopline" | cut -d, -f3 | sed 's/24\(:..:..\)/00\1/')"
+        abfahrtstart="$(echo "$stopline" | cut -d, -f3)"
        fi
        haltestellenid="$(echo "$stopline" | cut -d, -f4)"
        haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
@@ -761,7 +760,7 @@ bothsingle() {
         # Wird nur zur Auswertung bei der letzten Haltestelle benötigt.
         # für die Ausgaben: "Dauer der Fahrt" und "Ausgewertete Trip-ID".
         # Mit sed wird Datumsformat der Stunden von 24 Uhr auf 00 Uhr geändert, sonst passt Ergebnis nicht.
-        ankunftundende="$(echo "$stopline" | cut -d, -f2 | sed 's/24\(:..:..\)/00\1/')"
+        ankunftundende="$(echo "$stopline" | cut -d, -f2)"
        else
         echo "Stop ${b}: $haltestelle" >>./analysis.tmp
        fi
@@ -1085,6 +1084,8 @@ fi
       zwischenliste="$(echo "$trip" | sed 's/^\(.*\)$/\1,'$shapeid','$serviceid',/')"
       # Das Format der Uhrzeit wird z.B von 0:00:00 in 00:00:00 umgeschrieben.
       echo "$zwischenliste" | sed 's/\(^.*,\)\(.:..:..,.*,.*,.*,$\)/\10\2/' >>./htmlformat.tmp
+      # Format der Uhrzeit wird noch weiter angepasst.
+      sed -i 's/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g' ./htmlformat.tmp
       cat ./htmlformat.tmp | grep '^'"$tripid"',' | sed -n '1p' | sed 's/://g' >>./htmlfirstlines.tmp
 
      done
