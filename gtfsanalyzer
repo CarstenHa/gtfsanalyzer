@@ -483,6 +483,7 @@ do
       anzstopsinroute="$(echo "$trip" | wc -l)"
       for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
        # Das Format der Uhrzeit wird von *:**:** auf 0*:**:** umgeschrieben.
+       # Außerdem wird 24: auf 00: und 25: auf 01: geändert.
        stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/,\(.:..:..\)/,0\1/g;s/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g')"
 
        # Es wird nur die Zeit der ersten Haltestelle benötigt. Da Variable zu Beginn leer (unset;siehe oben), wird sie beim ersten Fund neu belegt und bleibt bestehen bis zum Ende der for-Schleife.
@@ -621,7 +622,9 @@ bothsingle() {
  
         anzstopsinroute="$(echo "$trip" | wc -l)"
         for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
-         stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/\(^.*,\)\(.:..:..,.*,.*,.*,$\)/\10\2/;s/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g')"
+         # Das Format der Uhrzeit wird von *:**:** auf 0*:**:** umgeschrieben.
+         # Außerdem wird 24: auf 00: und 25: auf 01: geändert.
+         stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/,\(.:..:..\)/,0\1/g;s/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g')"
          # Es wird nur die Zeit der ersten Haltestelle benötigt. Da Variable zu Beginn leer (unset;siehe oben), wird sie beim ersten Fund neu belegt und bleibt bestehen bis zum Ende der for-Schleife.
          if [ -z "$abfahrtstart" ]; then
           abfahrtstart="$(echo "$stopline" | cut -d, -f3)"
@@ -743,7 +746,9 @@ bothsingle() {
  
       anzstopsinroute="$(echo "$trip" | wc -l)"
       for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
-       stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/\(^.*,\)\(.:..:..,.*,.*,.*,$\)/\10\2/;s/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g')"
+       # Das Format der Uhrzeit wird von *:**:** auf 0*:**:** umgeschrieben.
+       # Außerdem wird 24: auf 00: und 25: auf 01: geändert.
+       stopline="$(echo "$trip" | sed -n ''$b'p' | sed 's/,\(.:..:..\)/,0\1/g;s/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g')"
        # Es wird nur die Zeit der ersten Haltestelle benötigt. Da Variable zu Beginn leer (unset;siehe oben), wird sie beim ersten Fund neu belegt und bleibt bestehen bis zum Ende der for-Schleife.
        if [ -z "$abfahrtstart" ]; then
         abfahrtstart="$(echo "$stopline" | cut -d, -f3)"
@@ -1084,7 +1089,7 @@ fi
       zwischenliste="$(echo "$trip" | sed 's/^\(.*\)$/\1,'$shapeid','$serviceid',/')"
       # Das Format der Uhrzeit wird z.B von 0:00:00 in 00:00:00 umgeschrieben.
       echo "$zwischenliste" | sed 's/\(^.*,\)\(.:..:..,.*,.*,.*,$\)/\10\2/' >>./htmlformat.tmp
-      # Format der Uhrzeit wird noch weiter angepasst.
+      # Außerdem wird 24: auf 00: und 25: auf 01: geändert.
       sed -i 's/24\(:..:..\)/00\1/g;s/25\(:..:..\)/01\1/g' ./htmlformat.tmp
       cat ./htmlformat.tmp | grep '^'"$tripid"',' | sed -n '1p' | sed 's/://g' >>./htmlfirstlines.tmp
 
@@ -1286,8 +1291,8 @@ fi
         else echo "    <td class=\"calresult transparent\">●</td>" >>./htmldatei.tmp
         fi
 
-      verkehrst_plus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,1' | sed 's/^[^,]*,\([^,]*\),1/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/' | sort)"
-      verkehrst_minus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,2' | sed 's/^[^,]*,\([^,]*\),2/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/' | sort)"
+        verkehrst_plus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,1' | sed 's/^[^,]*,\([^,]*\),1/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/' | sort)"
+        verkehrst_minus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,2' | sed 's/^[^,]*,\([^,]*\),2/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/' | sort)"
 
         # Zelle mit Anmerkungen
         if [ -n "$verkehrst_plus" -o -n "$verkehrst_minus" ]; then
