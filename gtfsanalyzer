@@ -98,12 +98,13 @@ cat <<EOU
 
 SYNOPSIS Beispiele:
 
-	$0 [options] [param]
+	$0 [options]
 	$0 [option] [param] [option] [param]
 	$0 -s singleauto [agency] [route_short_name] [shape_id]
 	$0 -g singleauto [agency] [route_short_name] [shape_id]
+	$0 -w auto [agency] [route_short_name]
 
-$0 analysiert GTFS-Daten (Sollfahrplandaten). Erstellte GPX-Dateien befinden sich im (neu erstellten) Unterordner ./gpx und die entsprechenden Analyseergebnisse im (neu erstellten) Unterordner ./results. Falls das Format der GTFS-Daten angeglichen wird, werden die Originaldateien in den (neu erstellten) Unterordner ./backup kopiert.
+$(basename $0) analysiert GTFS-Daten (Sollfahrplandaten). Erstellte GPX-Dateien befinden sich im (neu erstellten) Unterordner ./gpx und die entsprechenden Analyseergebnisse im (neu erstellten) Unterordner ./results. Falls das Format der GTFS-Daten angeglichen wird, werden die Originaldateien in den (neu erstellten) Unterordner ./backup kopiert.
 
 Für die Analyse stehen folgende Optionen zur Verfügung:
  
@@ -189,10 +190,17 @@ Options:
 
    -w [param]
 
-	(website) Analysiert alle Trips einer Route eines bestimmten Verkehrsunternehmens (agency)
-        und erstellt eine HTML-Seite.
+	(website) Analysiert alle Trips einer Route eines bestimmten Verkehrsunternehmens (agency) und erstellt eine HTML-Seite.
 	benötigt einen weiteren Parameter in Form einer Routennummer [route_short_name].
 	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+
+   -w auto [agency] [route_short_name]
+
+	Analysiert alle Trips einer Route eines bestimmten Verkehrsunternehmens (agency) und erstellt eine HTML-Seite.
+	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
+	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
+	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
+	Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
 
 EOU
 }
@@ -1069,9 +1077,28 @@ fi
 
   w) # *** HTML-Seitenerstellung ***
 
-     operatorabfrage
-     read -p "Bitte Operator (agency) auswählen: " agencyanswer
-     source ./verzweigung.tmp
+     if [ "$OPTARG" == "auto" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "auto" ]; then
+        agencyanswer="$2"
+        OPTARG="$3"
+        break
+       fi
+       shift
+      done
+
+      operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+
+     else
+
+      operatorabfrage
+      read -p "Bitte Operator (agency) auswählen: " agencyanswer
+      source ./verzweigung.tmp
+
+     fi
 
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
 
