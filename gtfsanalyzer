@@ -1338,6 +1338,8 @@ fi
            echo "<p>${d}: Fährt nicht an diesen Tagen:<br>" >>./anmerkungen.tmp
            echo "$verkehrst_minus</p>" >>./anmerkungen.tmp
           fi
+        else
+         echo "    <td></td>" >>./htmldatei.tmp
         fi
 
         # Zelle mit TripID
