@@ -1367,7 +1367,7 @@ fi
        done
 
        echo "  </table>" >>./htmldatei.tmp
-       cat ./anmerkungen.tmp >>./htmldatei.tmp
+       cat ./anmerkungen.tmp >>./htmldatei.tmp 2>/dev/null
        echo "  </div>" >>./htmldatei.tmp
 
      done
