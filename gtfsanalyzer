@@ -194,10 +194,14 @@ Options:
 	benötigt einen weiteren Parameter in Form einer Routennummer [route_short_name].
 	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
 
-   -w auto [agency] [route_short_name]
+   -w auto [agency] [route_short_name] [adapt|no]
 
 	Analysiert alle Trips einer Route eines bestimmten Verkehrsunternehmens (agency) und erstellt eine HTML-Seite.
 	Alle Angaben können in einem Rutsch als Argumente mitgegeben werden.
+        Benötigt mit adapt bzw. no noch eine Angabe falls das Format der Uhrzeit angepasst werden soll.
+	Uhrzeiten können im GTFS-Format, wenn diese außerhalb des eigentlichen Verkehrstages liegen,
+        zum Beispiel wie folgt angegeben sein: 25:00 für 01:00 nachts usw.
+	Mit dem Schalter adapt werden diese in ein "normales" Uhrzeitformat umgeschrieben.
 	Die Nummer der entsprechenden agency kann mit Option -l agencies ermittelt werden.
 	Die Routen (route_short_name) eines bestimmten Verkehrsunternehmens listet man mit der Option -l routes auf.
 	Diese Option ist besonders geeignet für die weitere Verwendung mit anderen Programmen.
@@ -629,7 +633,7 @@ bothsingle() {
         echo "Routenvariante ${shapeid}:" | tee -a ./analysis.tmp
 
         # uniq -f: Das Feld wird nicht ausgewertet.
-        shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
+        shapeidwithtrip="$(sed -n '/^'"$routeid"',[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
         tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
         trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
         serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
@@ -757,7 +761,7 @@ bothsingle() {
 
       shapeid="$(echo "$shapeidlist" | sed -n ''$c'p')"
       # uniq -f: Das Feld wird nicht ausgewertet.
-      shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
+      shapeidwithtrip="$(sed -n '/^'"$routeid"',[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
       tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
       trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
       serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
@@ -829,6 +833,10 @@ bothsingle() {
 
 # Ende Verzweigung shapesingle/Alle Routenvarianten
 fi
+
+    if [ "$1" == "singleauto" ]; then
+     break
+    fi
 
   ;;
 
@@ -918,7 +926,7 @@ fi
        echo "$shapelist" >>./"$OPTARG"_"$shapeid".gpx
 
        # uniq -f: Das Feld wird nicht ausgewertet.
-       shapeidwithtrip="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
+       shapeidwithtrip="$(sed -n '/^'"$routeid"',[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
        tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
        trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
       
@@ -972,6 +980,10 @@ fi
      if [ "$1" == "singleauto" ]; then
       echo "Shape-ID: ${shapeidauto}" >>./results/"$datenow"_error.log
      fi
+    fi
+
+    if [ "$1" == "auto" -o "$1" == "singleauto" ]; then
+     break
     fi
 
   ;;
@@ -1089,6 +1101,8 @@ fi
 
   w) # *** HTML-Seitenerstellung ***
 
+     unset readable
+
      if [ "$OPTARG" == "auto" ]; then
 
       # Argumente werden geshiftet
@@ -1097,10 +1111,17 @@ fi
        if [ "$1" == "auto" ]; then
         agencyanswer="$2"
         OPTARG="$3"
+        uhrzeit="$4"
         break
        fi
        shift
       done
+
+      if [ "$uhrzeit" == "adapt" -o "$uhrzeit" == "no" ]; then
+       echo "Automatische HTML-Erstellung gestartet ..."
+      else echo "Fehlerhafte Syntax. Bearbeitung wird abgebrochen."
+       break
+      fi
 
       operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
 
@@ -1208,6 +1229,9 @@ fi
      echo "    background-color: transparent;" >>./htmldatei.tmp
      echo "    padding: .6em;" >>./htmldatei.tmp
      echo "    border: 1px solid #ddd;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   td.outofday {" >>./htmldatei.tmp
+     echo "    padding-left: 1em;" >>./htmldatei.tmp
      echo "   }" >>./htmldatei.tmp
      echo "   th {" >>./htmldatei.tmp
      echo "    transform: rotate(-45deg);" >>./htmldatei.tmp
@@ -1380,12 +1404,58 @@ fi
      echo " </body>" >>./htmldatei.tmp
      echo "</html>" >>./htmldatei.tmp
 
+     if [ ! "$1" == "auto" ]; then
+
+      while true; do
+       read -p "Soll das Uhrzeitformat von GTFS in ein übliches Fahrplan-Uhrzeitformat geändert werden? (j/n) " datumaendern
+       case "$datumaendern" in
+        j|J|"") # Variable für Uhrzeitänderung wird gesetzt.
+                uhrzeit="adapt"
+                 break
+                 ;;
+           n|N) echo "Uhrzeitformat bleibt im GTFS-Modus erhalten."
+                 break
+                 ;;
+             *) echo "Fehlerhafte Eingabe!"
+                 ;;
+       esac
+      done
+
+     fi
+
+     if [ "$uhrzeit" == "adapt" ]; then
+
+      sed -i 's/<footer>/<footer>\n  <p>Hinweis:<br>*) Die Uhrzeit liegt außerhalb des eigentlichen Verkehrstags.<\/p>/' ./htmldatei.tmp
+
+      sed -i '
+              s/<td>24:\(.*\)<\/td>/<td class="outofday">00:\1\*<\/td>/
+              s/<td>25:\(.*\)<\/td>/<td class="outofday">01:\1\*<\/td>/
+              s/<td>26:\(.*\)<\/td>/<td class="outofday">02:\1\*<\/td>/
+              s/<td>27:\(.*\)<\/td>/<td class="outofday">03:\1\*<\/td>/
+              s/<td>28:\(.*\)<\/td>/<td class="outofday">04:\1\*<\/td>/
+              s/<td>29:\(.*\)<\/td>/<td class="outofday">05:\1\*<\/td>/
+              s/<td>30:\(.*\)<\/td>/<td class="outofday">06:\1\*<\/td>/
+              s/<td>31:\(.*\)<\/td>/<td class="outofday">07:\1\*<\/td>/
+              s/<td>32:\(.*\)<\/td>/<td class="outofday">08:\1\*<\/td>/
+              s/<td>33:\(.*\)<\/td>/<td class="outofday">09:\1\*<\/td>/
+             ' ./htmldatei.tmp
+
+     fi
+
      # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
      agencynameforfile="$(echo ${agencyname,,} | sed 's/ /_/g;s/\//_/g')"
-     mv -i ./htmldatei.tmp "./results/${OPTARG}_${agencynameforfile}.html"
+     if [ "$1" == "auto" ]; then
+      mv ./htmldatei.tmp "./results/${OPTARG}_${agencynameforfile}.html"
+     else
+      mv -i ./htmldatei.tmp "./results/${OPTARG}_${agencynameforfile}.html"
+     fi
 
 
     else echo "Es wurde keine Route ${OPTARG} des Verkehrsunternehmens (agency) ${agencyname} gefunden. Um eine Liste aller Routen eines Verkehrsunternehmens zu erhalten, kann dieses Skript mit der Option -l routes aufgerufen werden."
+    fi
+
+    if [ "$1" == "auto" ]; then
+     break
     fi
 
   ;;
