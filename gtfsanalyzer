@@ -1292,7 +1292,11 @@ fi
      # Hier werden die Elemente der Linienübersicht in eine extra Datei geschrieben.
      # Diese wird am Ende der HTML-Seitenerstellung in die entsprechende Seite integriert.
      echo "  <section id=\"linienueber\">" >./seclinienueber.tmp
-     echo "  <h4>Linienübersicht:</h4>" >>./seclinienueber.tmp
+     if [ "$anzshapeid" -lt "2" ]; then
+      echo "  <h4>Routenvariante der Linie ${OPTARG}:</h4>" >>./seclinienueber.tmp
+     else
+      echo "  <h4>Routenvarianten der Linie ${OPTARG}:</h4>" >>./seclinienueber.tmp
+     fi
      echo "   <ol>" >>./seclinienueber.tmp
 
      echo "<!-- @Linienuebersicht -->" >>./htmldatei.tmp
@@ -1337,12 +1341,14 @@ fi
          # Spalte mit TripIDs
          echo "    <th class=\"tripid\"><span>TripID</span></th>" >>./htmldatei.tmp
 
+         # Verarbeitung der Haltestellen für den Tabellenkopf.
          unset firstlaststop
          for ((f=1 ; f<=(("$anzhaltestellen")) ; f++)); do
 
           stopid="$(echo "$trip" | sed -n ''${f}'p' | cut -d, -f3)"
           haltestelle="$(grep "$stopid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
 
+          # firstlaststop ist für die Linienübersicht zu Beginn der HTML-Seite.
           if [ "$f" == "1" ]; then
            sed -i 's/@stopbegin/'"${haltestelle}"'/' ./htmldatei.tmp
            firstlaststop="${haltestelle}"
@@ -1361,6 +1367,7 @@ fi
 
         fi
 
+        # Verkehrstage
         serviceid="$(echo "$trip" | cut -d, -f5 | uniq)"
         serviceline="$(grep '^'$serviceid',' ./calendar.txt)"
 
@@ -1432,6 +1439,7 @@ fi
      done
      echo "  </section>" >>./htmldatei.tmp
 
+     # Einträge für Linienübersicht
      echo "   </ol>" >>./seclinienueber.tmp
      echo "  </section>" >>./seclinienueber.tmp
 
@@ -1444,6 +1452,7 @@ fi
      echo " </body>" >>./htmldatei.tmp
      echo "</html>" >>./htmldatei.tmp
 
+     # Uhrzeitformat wird (eventuell) bearbeitet.
      if [ ! "$1" == "auto" ]; then
 
       while true; do
