@@ -75,6 +75,9 @@ rm -f ./htmlformat.tmp
 rm -f ./htmlsortlist.tmp
 rm -f ./anmerkungen.tmp
 rm -f ./htmldatei.tmp
+rm -f ./htmldatei_a.tmp
+rm -f ./seclinienueber.tmp
+rm -f ./htmldatei_c.tmp
 
 # *** Funktionen ***
 operatorabfrage() {
@@ -1203,8 +1206,14 @@ fi
      echo "    font-family: 'Verdana', sans-serif;" >>./htmldatei.tmp
      echo "    color: #444444;" >>./htmldatei.tmp
      echo "   }" >>./htmldatei.tmp
+     echo "   section#linienueber h4 {" >>./htmldatei.tmp
+     echo "    margin: 1em 0 .8em  3.7em;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
+     echo "   section#linienueber ol {" >>./htmldatei.tmp
+     echo "    margin: -.5em 0 1em 0;" >>./htmldatei.tmp
+     echo "   }" >>./htmldatei.tmp
      echo "   div.shapetab {" >>./htmldatei.tmp
-     echo "    padding: 12em 15em 1em 2em;" >>./htmldatei.tmp
+     echo "    padding: 8em 15em 1em 2em;" >>./htmldatei.tmp
      echo "    background-color: #f6f5f4;" >>./htmldatei.tmp
      echo "    border-radius: 10px;" >>./htmldatei.tmp
      echo "    display: inline-block;" >>./htmldatei.tmp
@@ -1278,7 +1287,16 @@ fi
      echo "  <h2>Agency: ${agencyname}</h2>" >>./htmldatei.tmp
      echo " </header>" >>./htmldatei.tmp
      echo " <main>" >>./htmldatei.tmp
+     echo " <article>" >>./htmldatei.tmp
 
+     # Hier werden die Elemente der Linienübersicht in eine extra Datei geschrieben.
+     # Diese wird am Ende der HTML-Seitenerstellung in die entsprechende Seite integriert.
+     echo "  <section id=\"linienueber\">" >./seclinienueber.tmp
+     echo "  <h4>Linienübersicht:</h4>" >>./seclinienueber.tmp
+     echo "   <ol>" >>./seclinienueber.tmp
+
+     echo "<!-- @Linienuebersicht -->" >>./htmldatei.tmp
+     echo "  <section>" >>./htmldatei.tmp
      # Schleife ShapeIDs werden verarbeitet.
      for ((c=1 ; c<=(("$anzshapeid")) ; c++)); do
 
@@ -1287,9 +1305,12 @@ fi
       # Trips der entsprechenden ShapeID werden gefiltert.
       tripsfromshapelist="$(cat ./htmlsortlist.tmp | grep ','$shapeid',' | cut -d, -f1 | uniq)"
       anztripsfromshape="$(echo "$tripsfromshapelist" | wc -l)"
-      echo "  <div class=\"shapetab\">" >>./htmldatei.tmp
+      echo "  <div id=\"${shapeid}\" class=\"shapetab\">" >>./htmldatei.tmp
       echo "  <h2>Fahrtvariante ${c}:</h2>" >>./htmldatei.tmp
-      echo "  <h3>ShapeID: ${shapeid}</h3>" >>./htmldatei.tmp
+      echo "  <h3>Von: @stopbegin</h3>" >>./htmldatei.tmp
+      echo "  <h3>Nach: @stopend</h3>" >>./htmldatei.tmp
+      echo "  <h4>ShapeID: ${shapeid}</h4>" >>./htmldatei.tmp
+      echo "  <p><a href=\"#linienueber\">zur Linienübersicht</a></p>" >>./htmldatei.tmp
       echo "  <table>" >>./htmldatei.tmp
 
        # Trips der entsprechenden ShapeID werden verarbeitet.
@@ -1316,11 +1337,25 @@ fi
          # Spalte mit TripIDs
          echo "    <th class=\"tripid\"><span>TripID</span></th>" >>./htmldatei.tmp
 
+         unset firstlaststop
          for ((f=1 ; f<=(("$anzhaltestellen")) ; f++)); do
+
           stopid="$(echo "$trip" | sed -n ''${f}'p' | cut -d, -f3)"
           haltestelle="$(grep "$stopid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
+
+          if [ "$f" == "1" ]; then
+           sed -i 's/@stopbegin/'"${haltestelle}"'/' ./htmldatei.tmp
+           firstlaststop="${haltestelle}"
+          fi
+          if [ "$f" == "$anzhaltestellen" ]; then
+           sed -i 's/@stopend/'"${haltestelle}"'/' ./htmldatei.tmp
+           firstlaststop="<li><a href=\"#${shapeid}\">${firstlaststop} => ${haltestelle} (${shapeid})</a></li>"
+          fi
+
           echo "    <th><span>${haltestelle}</span></th>" >>./htmldatei.tmp
          done
+         echo "    $firstlaststop" >>./seclinienueber.tmp
+
          echo "   </tr>" >>./htmldatei.tmp
          echo "   <tr>" >>./htmldatei.tmp
 
@@ -1395,7 +1430,12 @@ fi
        echo "  </div>" >>./htmldatei.tmp
 
      done
+     echo "  </section>" >>./htmldatei.tmp
 
+     echo "   </ol>" >>./seclinienueber.tmp
+     echo "  </section>" >>./seclinienueber.tmp
+
+     echo " </article>" >>./htmldatei.tmp
      echo " </main>" >>./htmldatei.tmp
      echo " <footer>" >>./htmldatei.tmp
      echo "  <p>Diese Seite wurde erstellt durch $(basename ${0})</p>" >>./htmldatei.tmp
@@ -1442,6 +1482,12 @@ fi
 
      fi
 
+     # HTML-Seite wird mit der Linienübersicht neu zusammengesetzt.
+     sed -n '1,/<!-- @Linienuebersicht -->/p' ./htmldatei.tmp | sed '$d' >./htmldatei_a.tmp
+     sed -n '/<!-- @Linienuebersicht -->/,$p' ./htmldatei.tmp | sed '1d' >./htmldatei_c.tmp
+
+     cat ./htmldatei_a.tmp ./seclinienueber.tmp ./htmldatei_c.tmp >./htmldatei.tmp
+
      # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
      agencynameforfile="$(echo ${agencyname,,} | sed 's/ /_/g;s/\//_/g')"
      if [ "$1" == "auto" ]; then
@@ -1479,4 +1525,7 @@ rm -f ./htmlformat.tmp
 rm -f ./htmlsortlist.tmp
 rm -f ./anmerkungen.tmp
 rm -f ./htmldatei.tmp
+rm -f ./htmldatei_a.tmp
+rm -f ./seclinienueber.tmp
+rm -f ./htmldatei_c.tmp
 
