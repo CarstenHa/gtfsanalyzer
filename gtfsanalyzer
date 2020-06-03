@@ -11,7 +11,7 @@
 # Überprüfung, ob Programm gpxinfo installiert ist.
 # type -p: Leere Ausgabe bei fehlendem Paket.
 if [ -z "$(type -p gpxinfo)" ]; then
- read -p "Das Programm gpxinfo ist nicht installiert. Um den vollen Funktionsumfang nutzen zu können, mussen sie das Programm aus dem Paket python3-gpxpy (sudo apt-get install python3-gpxpy) installieren. Weiter mit [ENTER]"
+ read -p "Das Programm gpxinfo ist nicht installiert. Um den vollen Funktionsumfang nutzen zu können, müssen sie das Programm installieren (sudo apt-get install gpxinfo). Weiter mit [ENTER]"
 fi
 
 # Variable u.a. für error-log-Datei.
