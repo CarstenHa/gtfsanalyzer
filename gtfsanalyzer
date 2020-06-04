@@ -356,7 +356,7 @@ do
       echo "Generiere GPX ..."
       echo "Name der GPX-Datei: "$dateiname"_"$stopid".gpx"
       echo "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>" >./"$dateiname"_"$stopid".gpx
-      echo "<gpx version=\"1.1\" creator=\"${0}\">" >>./"$dateiname"_"$stopid".gpx
+      echo "<gpx version=\"1.1\" creator=\"$(basename ${0})\">" >>./"$dateiname"_"$stopid".gpx
       echo "<wpt lat=\"$stoplat\" lon=\"$stoplon\">" >>./"$dateiname"_"$stopid".gpx
       echo "<name>${stopname}</name>" >>./"$dateiname"_"$stopid".gpx
       echo "<desc>Stop_id: ${stopid}</desc>" >>./"$dateiname"_"$stopid".gpx
@@ -922,7 +922,7 @@ fi
 
         shapelist="$(grep '^'"$shapeid"',' ./shapes.txt | sort -t"," -k4 -n | cut -d, -f2,3 | sed 's/\(^[^,]*\),\(.*\)/<trkpt lat=\"\1\" lon=\"\2\">\n<\/trkpt>/')"
        echo "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>" >./"$OPTARG"_"$shapeid".gpx
-       echo "<gpx version=\"1.1\" creator=\"${0}\">" >>./"$OPTARG"_"$shapeid".gpx
+       echo "<gpx version=\"1.1\" creator=\"$(basename ${0})\">" >>./"$OPTARG"_"$shapeid".gpx
        echo "<trk>" >>./"$OPTARG"_"$shapeid".gpx
        echo "<name>${OPTARG}_${shapeid}</name>" >>./"$OPTARG"_"$shapeid".gpx
        echo "<trkseg>" >>./"$OPTARG"_"$shapeid".gpx
