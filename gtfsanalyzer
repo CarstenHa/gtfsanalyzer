@@ -738,6 +738,8 @@ bothsingle() {
      read -p "Bitte Operator (agency) auswählen: " agencyanswer
      source ./verzweigung.tmp
 
+     unset shortsummary
+
      # route_id ermitteln
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
 
@@ -784,8 +786,10 @@ bothsingle() {
        # Zwischenhalte werden nur in Datei geschrieben
        if [ "$b" == "1" ]; then
         echo "Stop ${b}: $haltestelle" | tee -a ./analysis.tmp
+        stopbegin="$haltestelle"
        elif [ "$b" == "$anzstopsinroute" ]; then
         echo "Stop ${b}: $haltestelle" | tee -a ./analysis.tmp
+        stopend="$haltestelle"
         # Wird nur zur Auswertung bei der letzten Haltestelle benötigt.
         # für die Ausgaben: "Dauer der Fahrt" und "Ausgewertete Trip-ID".
         # Mit sed wird Datumsformat der Stunden von 24 Uhr auf 00 Uhr geändert, sonst passt Ergebnis nicht.
@@ -824,8 +828,21 @@ bothsingle() {
       echo "Haltestellen in Route: $anzstopsinroute" | tee -a ./analysis.tmp
       echo "***************************************" | tee -a ./analysis.tmp
 
+      if [ "$anzshapeid" -gt "2" ]; then
+       shortsummary=$(printf "%s\n%2d) %6d %4d  %-45.45s  %-10s\n" "$shortsummary" "$c" "$shapeid" "$anzstopsinroute" "$stopbegin" "$stopend")
+      fi
+
      # Ende der c-Schleife
      done
+
+     # Bei mehr als zwei gefundenen ShapeIDs wird eine Zusammenfassung am Ende angezeigt.
+     if [ "$anzshapeid" -gt "2" ]; then
+      echo "Zusammenfassung:"
+      echo ""
+      echo "Nr  ShapeID Stop Von                                            Nach"
+      echo "$shortsummary"
+      echo ""
+     fi
 
      # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
      agencynameforfile="$(echo ${agencyname,,} | sed 's/ /_/g;s/\//_/g')"
