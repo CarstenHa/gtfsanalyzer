@@ -17,9 +17,6 @@ fi
 # Variable u.a. für error-log-Datei.
 datenow=`date +%Y%m%d_%H%M%S`
 
-if [ ! -d "backup" ]; then
-  mkdir ./backup
-fi
 if [ ! -d "results" ]; then
   mkdir ./results
 fi
@@ -107,11 +104,17 @@ SYNOPSIS Beispiele:
 	$0 -g singleauto [agency] [route_short_name] [shape_id]
 	$0 -w auto [agency] [route_short_name]
 
-$(basename $0) analysiert GTFS-Daten (Sollfahrplandaten). Erstellte GPX-Dateien befinden sich im (neu erstellten) Unterordner ./gpx und die entsprechenden Analyseergebnisse im (neu erstellten) Unterordner ./results. Falls das Format der GTFS-Daten angeglichen wird, werden die Originaldateien in den (neu erstellten) Unterordner ./backup kopiert.
+$(basename $0) analysiert GTFS-Daten (Sollfahrplandaten). Erstellte GPX-Dateien befinden sich im (neu erstellten) Unterordner ./gpx und die entsprechenden Analyseergebnisse im (neu erstellten) Unterordner ./results.
+
+Das Programm ist eine Beta-Version und wertet nicht den kompletten Umfang der GTFS-Daten aus. Es kann auch zur fehlerhaften Ausgabe kommen (z.B. durch unterschiedliches Quoting in den GTFS-Dateien etc.). Dann kann das Programm mit der Option -f aufgerufen werden. Dann werden die GTFS-Dateien gecheckt und ggf. entsprechend angepasst. Dadurch können eventuell schon einige Probleme gelöst werden. Die Originaldateien werden zwar im (neu erstellten) Unterordner ./backup gesichert, aber es kann nicht schaden, vorher zusätzlich ein Datenbackup durchzuführen.
 
 Für die Analyse stehen folgende Optionen zur Verfügung:
  
 Options:
+
+   -f
+
+	(formatcheck) Führt einen Check der GTFS-Daten durch (siehe auch Beschreibung oben). 
 
    -g [route_short_name]		
 
@@ -220,65 +223,151 @@ if [ $# == "0" ]; then
  exit 10
 fi
 
-# Formatüberprüfung der GTFS-Daten
-echo ""
-echo "Format der GTFS-Daten wird überprüft ..."
-
-if [ "$(grep -b '^\"' ./routes.txt | wc -l)" -gt "1" ]; then
- echo "routes.txt wird umgeschrieben ..."
- cp -i ./routes.txt ./backup && echo "Original routes.txt befindet sich nun im Ordner ${PWD}/backup"
- sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./routes.txt
-fi
-if [ "$(egrep -b '^[^,]*,\"' ./routes.txt | wc -l)" -gt "1" ]; then
- echo "routes.txt wird umgeschrieben ..."
-  if [ -e ./backup/routes.txt ]; then
-   anzroutestxt="$(ls ./backup/routes.txt | wc -l)"
-   cp -i ./routes.txt ./backup/routes$(($anzroutestxt+1)).txt && echo "routes$(($anzroutestxt+1)).txt befindet sich nun im Ordner ${PWD}/backup"
-  else
-   cp -i ./routes.txt ./backup && echo "Original routes.txt befindet sich nun im Ordner ${PWD}/backup"
-  fi
- sed -i 's/^\([^,]*\),\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2,\3/' ./routes.txt
-fi
-if [ "$(grep -b '^\"' ./trips.txt | wc -l)" -gt "1" ]; then
- echo "trips.txt wird umgeschrieben ..."
- cp -i ./trips.txt ./backup && echo "Original trips.txt befindet sich nun im Ordner ${PWD}/backup"
- sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./trips.txt
-fi
-if [ "$(grep -b '^\"' ./agency.txt | wc -l)" -gt "1" ]; then
- echo "agency.txt wird umgeschrieben ..."
- cp -i ./agency.txt ./backup && echo "Original agency.txt befindet sich nun im Ordner ${PWD}/backup"
- sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./agency.txt
-fi
-if [ "$(grep -b '^\"' ./calendar.txt | wc -l)" -gt "1" ]; then
- echo "calendar.txt wird umgeschrieben ..."
- cp -i ./calendar.txt ./backup && echo "Original calendar.txt befindet sich nun im Ordner ${PWD}/backup"
- sed -i 's/"//g' ./calendar.txt
-fi
-if [ "$(grep -b '^\"' ./calendar_dates.txt | wc -l)" -gt "1" ]; then
- echo "calendar_dates.txt wird umgeschrieben ..."
- cp -i ./calendar_dates.txt ./backup && echo "Original calendar_dates.txt befindet sich nun im Ordner ${PWD}/backup"
- sed -i 's/"//g' ./calendar_dates.txt
-fi
-if [ "$(grep -b '^\"' ./stops.txt | wc -l)" -gt "1" ]; then
- echo "stops.txt wird umgeschrieben ..."
- cp -i ./stops.txt ./backup && echo "Original stops.txt befindet sich nun im Ordner ${PWD}/backup"
- sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./stops.txt
-fi
-if [ "$(grep -b '^\"' ./stop_times.txt | wc -l)" -gt "1" ]; then
- echo "stop_times.txt wird umgeschrieben ..."
- cp -i ./stop_times.txt ./backup && echo "Original stop_times.txt befindet sich nun im Ordner ${PWD}/backup"
- sed -i 's/"//g' ./stop_times.txt
-fi
-
-echo "GTFS-Datenüberprüfung abgeschlossen."
-echo ""
-
-
-
-while getopts ho:t:s:g:l:w: opt
+while getopts fho:t:s:g:l:w: opt
 
 do 
  case $opt in
+
+  f) # *** Formatüberprüfung der GTFS-Daten ***
+  
+     if [ ! -d "backup" ]; then
+      mkdir ./backup
+     fi
+  
+     echo ""
+     echo "Format der GTFS-Daten wird überprüft ..."
+
+     # Feld-Namen überprüfen
+     fnagency="$(sed -n '1p' ./agency.txt)"
+     fncalendar="$(sed -n '1p' ./calendar.txt)"
+     fncalendar_dates="$(sed -n '1p' ./calendar_dates.txt)"
+     fnroutes="$(sed -n '1p' ./routes.txt)"
+     fnshapes="$(sed -n '1p' ./shapes.txt)"
+     fnstops="$(sed -n '1p' ./stops.txt)"
+     fnstop_times="$(sed -n '1p' ./stop_times.txt)"
+     fntrips="$(sed -n '1p' ./trips.txt)"
+
+     if [ \
+             -z "$(echo "$fnagency" | cut -d, -f1 | grep 'agency_id')" \
+          -o -z "$(echo "$fnagency" | cut -d, -f2 | grep 'agency_name')" \
+        ]; then
+      echo "agency.txt: GTFS Format wird von $(basename $0) zur Zeit noch nicht unterstützt."
+     fi
+     if [ \
+             -z "$(echo "$fncalendar" | cut -d, -f1 | grep 'service_id')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f2 | grep 'monday')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f3 | grep 'tuesday')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f4 | grep 'wednesday')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f5 | grep 'thursday')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f6 | grep 'friday')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f7 | grep 'saturday')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f8 | grep 'sunday')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f9 | grep 'start_date')" \
+          -o -z "$(echo "$fncalendar" | cut -d, -f10 | grep 'end_date')" \
+        ]; then
+      echo "calendar.txt: GTFS Format wird von $(basename $0) zur Zeit noch nicht unterstützt."
+     fi
+     if [ \
+             -z "$(echo "$fncalendar_dates" | cut -d, -f1 | grep 'service_id')" \
+          -o -z "$(echo "$fncalendar_dates" | cut -d, -f2 | grep 'date')" \
+          -o -z "$(echo "$fncalendar_dates" | cut -d, -f3 | grep 'exception_type')" \
+        ]; then
+      echo "calendar_dates.txt: GTFS Format wird von $(basename $0) zur Zeit noch nicht unterstützt."
+     fi
+     if [ \
+             -z "$(echo "$fnroutes" | cut -d, -f1 | grep 'route_id')" \
+          -o -z "$(echo "$fnroutes" | cut -d, -f2 | grep 'agency_id')" \
+          -o -z "$(echo "$fnroutes" | cut -d, -f3 | grep 'route_short_name')" \
+        ]; then
+      echo "routes.txt: GTFS Format wird von $(basename $0) zur Zeit noch nicht unterstützt."
+     fi
+     if [ \
+             -z "$(echo "$fnshapes" | cut -d, -f1 | grep 'shape_id')" \
+          -o -z "$(echo "$fnshapes" | cut -d, -f2 | grep 'shape_pt_lat')" \
+          -o -z "$(echo "$fnshapes" | cut -d, -f3 | grep 'shape_pt_lon')" \
+          -o -z "$(echo "$fnshapes" | cut -d, -f4 | grep 'shape_pt_sequence')" \
+        ]; then
+      echo "shapes.txt: GTFS Format wird von $(basename $0) zur Zeit noch nicht unterstützt."
+     fi
+     if [ \
+             -z "$(echo "$fnstops" | cut -d, -f1 | grep 'stop_id')" \
+          -o -z "$(echo "$fnstops" | cut -d, -f3 | grep 'stop_name')" \
+          -o -z "$(echo "$fnstops" | cut -d, -f5 | grep 'stop_lat')" \
+          -o -z "$(echo "$fnstops" | cut -d, -f6 | grep 'stop_lon')" \
+        ]; then
+      echo "stops.txt: GTFS Format wird von $(basename $0) zur Zeit noch nicht unterstützt."
+     fi
+     if [ \
+             -z "$(echo "$fnstop_times" | cut -d, -f1 | grep 'trip_id')" \
+          -o -z "$(echo "$fnstop_times" | cut -d, -f2 | grep 'arrival_time')" \
+          -o -z "$(echo "$fnstop_times" | cut -d, -f3 | grep 'departure_time')" \
+          -o -z "$(echo "$fnstop_times" | cut -d, -f4 | grep 'stop_id')" \
+          -o -z "$(echo "$fnstop_times" | cut -d, -f5 | grep 'stop_sequence')" \
+        ]; then
+      echo "stop_times.txt: GTFS Format wird von $(basename $0) zur Zeit noch nicht unterstützt."
+     fi
+     if [ \
+             -z "$(echo "$fntrips" | cut -d, -f1 | grep 'route_id')" \
+          -o -z "$(echo "$fntrips" | cut -d, -f2 | grep 'service_id')" \
+          -o -z "$(echo "$fntrips" | cut -d, -f3 | grep 'trip_id')" \
+          -o -z "$(echo "$fntrips" | cut -d, -f4 | grep 'trip_headsign')" \
+          -o -z "$(echo "$fntrips" | cut -d, -f5 | grep 'trip_short_name')" \
+          -o -z "$(echo "$fntrips" | cut -d, -f8 | grep 'shape_id')" \
+        ]; then
+      echo "trips.txt: GTFS Format wird von $(basename $0) zur Zeit noch nicht unterstützt."
+     fi
+
+     # Quoting checken
+
+     if [ "$(grep -b '^\"' ./routes.txt | wc -l)" -gt "1" ]; then
+      echo "routes.txt wird umgeschrieben ..."
+      cp -i ./routes.txt ./backup && echo "Original routes.txt befindet sich nun im Ordner ${PWD}/backup"
+      sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./routes.txt
+     fi
+     if [ "$(egrep -b '^[^,]*,\"' ./routes.txt | wc -l)" -gt "1" ]; then
+      echo "routes.txt wird umgeschrieben ..."
+       if [ -e ./backup/routes.txt ]; then
+        anzroutestxt="$(ls ./backup/routes.txt | wc -l)"
+        cp -i ./routes.txt ./backup/routes$(($anzroutestxt+1)).txt && echo "routes$(($anzroutestxt+1)).txt befindet sich nun im Ordner ${PWD}/backup"
+       else
+        cp -i ./routes.txt ./backup && echo "Original routes.txt befindet sich nun im Ordner ${PWD}/backup"
+       fi
+      sed -i 's/^\([^,]*\),\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2,\3/' ./routes.txt
+     fi
+     if [ "$(grep -b '^\"' ./trips.txt | wc -l)" -gt "1" ]; then
+      echo "trips.txt wird umgeschrieben ..."
+      cp -i ./trips.txt ./backup && echo "Original trips.txt befindet sich nun im Ordner ${PWD}/backup"
+      sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./trips.txt
+     fi
+     if [ "$(grep -b '^\"' ./agency.txt | wc -l)" -gt "1" ]; then
+      echo "agency.txt wird umgeschrieben ..."
+      cp -i ./agency.txt ./backup && echo "Original agency.txt befindet sich nun im Ordner ${PWD}/backup"
+      sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./agency.txt
+     fi
+     if [ "$(grep -b '^\"' ./calendar.txt | wc -l)" -gt "1" ]; then
+      echo "calendar.txt wird umgeschrieben ..."
+      cp -i ./calendar.txt ./backup && echo "Original calendar.txt befindet sich nun im Ordner ${PWD}/backup"
+      sed -i 's/"//g' ./calendar.txt
+     fi
+     if [ "$(grep -b '^\"' ./calendar_dates.txt | wc -l)" -gt "1" ]; then
+      echo "calendar_dates.txt wird umgeschrieben ..."
+      cp -i ./calendar_dates.txt ./backup && echo "Original calendar_dates.txt befindet sich nun im Ordner ${PWD}/backup"
+      sed -i 's/"//g' ./calendar_dates.txt
+     fi
+     if [ "$(grep -b '^\"' ./stops.txt | wc -l)" -gt "1" ]; then
+      echo "stops.txt wird umgeschrieben ..."
+      cp -i ./stops.txt ./backup && echo "Original stops.txt befindet sich nun im Ordner ${PWD}/backup"
+      sed -i 's/^\"\([^\"]*\)\"[^,]*,\(.*\)/\1,\2/' ./stops.txt
+     fi
+     if [ "$(grep -b '^\"' ./stop_times.txt | wc -l)" -gt "1" ]; then
+      echo "stop_times.txt wird umgeschrieben ..."
+      cp -i ./stop_times.txt ./backup && echo "Original stop_times.txt befindet sich nun im Ordner ${PWD}/backup"
+      sed -i 's/"//g' ./stop_times.txt
+     fi
+
+     echo "GTFS-Datenüberprüfung abgeschlossen."
+     echo ""
+  ;;
 
   h) usage
      exit 0
@@ -559,12 +648,15 @@ do
 
       Startdate=$(date -u -d "$timebegin" +"%s")
       Finaldate=$(date -u -d "$timeend" +"%s")
+      servicestart="$(grep '^'"$serviceid"',' ./calendar.txt | cut -d, -f9)"
+      serviceend="$(grep '^'"$serviceid"',' ./calendar.txt | cut -d, -f10)"       
 
       echo "Dauer der Fahrt: $(date -u -d "0 $Finaldate sec - $Startdate sec" +%H:%M)"  | tee -a ./analysis.tmp
 
       echo "Trip-ID: $tripid" | tee -a ./analysis.tmp
       echo "Shape-ID: $shapeid" | tee -a ./analysis.tmp
       echo "Service-ID: $serviceid" | tee -a ./analysis.tmp
+      echo "Gültigkeit (von-bis einschließlich): ${servicestart}-${serviceend}" | tee -a ./analysis.tmp
       echo "Haltestellen in Route: $anzstopsinroute" | tee -a ./analysis.tmp
       echo "*******************************************" | tee -a ./analysis.tmp
 
@@ -640,6 +732,8 @@ bothsingle() {
         tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
         trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
         serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
+        servicestart="$(grep '^'"$serviceid"',' ./calendar.txt | cut -d, -f9)"
+        serviceend="$(grep '^'"$serviceid"',' ./calendar.txt | cut -d, -f10)"       
  
         anzstopsinroute="$(echo "$trip" | wc -l)"
         for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
@@ -671,6 +765,7 @@ bothsingle() {
         verkehrst_minus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,2' | sed 's/^[^,]*,\([^,]*\),2/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/')"
         echo "Augewertete Trip-ID: $tripid (${abfahrtstart} Uhr - ${ankunftundende} Uhr)" | tee -a ./analysis.tmp
         echo "Verkehrstage des ausgewerteten Trips (Mo-So): $verkehrstage" | tee -a ./analysis.tmp
+        echo "Gültigkeit des ausgewerteten Trips (von-bis einschließlich): ${servicestart}-${serviceend}" | tee -a ./analysis.tmp
         if [ -n "$verkehrst_plus" ]; then
          echo "Zusätzliche Verkehrstage:" | tee -a ./analysis.tmp
          echo "$verkehrst_plus" | sort | tee -a ./analysis.tmp
@@ -770,6 +865,8 @@ bothsingle() {
       tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
       trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
       serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
+      servicestart="$(grep '^'"$serviceid"',' ./calendar.txt | cut -d, -f9)"
+      serviceend="$(grep '^'"$serviceid"',' ./calendar.txt | cut -d, -f10)" 
  
       anzstopsinroute="$(echo "$trip" | wc -l)"
       for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
@@ -804,6 +901,7 @@ bothsingle() {
       verkehrst_minus="$(grep '^'"$serviceid"',' ./calendar_dates.txt | grep '^.*,.*,2' | sed 's/^[^,]*,\([^,]*\),2/\1/;s/\(....\)\(..\)\(..\)/\1-\2-\3/')"
       echo "Augewertete Trip-ID: $tripid (${abfahrtstart} Uhr - ${ankunftundende} Uhr)" | tee -a ./analysis.tmp
       echo "Verkehrstage des ausgewerteten Trips (Mo-So): $verkehrstage" | tee -a ./analysis.tmp
+      echo "Gültigkeit des ausgewerteten Trips (von-bis einschließlich): ${servicestart}-${serviceend}" | tee -a ./analysis.tmp
       if [ -n "$verkehrst_plus" ]; then
        echo "Zusätzliche Verkehrstage:" | tee -a ./analysis.tmp
        echo "$verkehrst_plus" | sort | tee -a ./analysis.tmp

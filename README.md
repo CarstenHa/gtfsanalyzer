@@ -1,6 +1,8 @@
 # gtfsanalyzer
 
-Bash-Skript zum Analysieren von GTFS-Daten (Soll-Fahrplandaten).
+Bash-Skript zum Analysieren von GTFS-Daten (Soll-Fahrplandaten). 
+
+Das Programm ist eine Beta-Version und wertet nicht den kompletten Umfang der GTFS-Daten aus. Es kann auch zur fehlerhaften Ausgabe kommen (z.B. durch unterschiedliches Quoting in den GTFS-Dateien etc.). Dann kann das Programm mit der Option -f aufgerufen werden. Dann werden die GTFS-Dateien gecheckt und ggf. entsprechend angepasst. Dadurch können eventuell schon einige Probleme gelöst werden. Die Originaldateien werden zwar im Unterordner 'backup' gesichert, aber es kann nicht schaden, vorher zusätzlich ein Datenbackup durchzuführen.
 
 Mehrere Optionen stehen zur Verfügung. So können zum Beispiel:
 
