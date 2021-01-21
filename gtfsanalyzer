@@ -144,14 +144,17 @@ Options:
 
 	gibt diese Hilfe aus.
 
-   -l [param]
+   -l [param] 
+   -l [param] [agency] [route_short_name]
 
 	(list) option with mandatory parameter.
 	benötigt einen weiteren Parameter in Form einer Routennummer.
-	Beispiel: $0 -l routes       listet alle Routennummern einer agency auf.
-	Beispiel: $0 -l stops        listet alle Haltestellen einer agency auf.
-	Beispiel: $0 -l allstops     listet alle Haltestellen der GTFS-Daten auf.
-	Beispiel: $0 -l agencies     listet alle Verkehrsunternehmen der GTFS-Daten auf.
+	Beispiel: $0 -l routes                                  listet alle Routennummern einer agency auf.
+	Beispiel: $0 -l stops                                   listet alle Haltestellen einer agency auf.
+	Beispiel: $0 -l allstops                                listet alle Haltestellen der GTFS-Daten auf.
+	Beispiel: $0 -l agencies                                listet alle Verkehrsunternehmen der GTFS-Daten auf.
+	Beispiel: $0 -l shapeid [agency] [route_short_name]     listet alle ShapeIDs einer bestimmten Route auf.
+                                                            Benötigt weitere Parameter.
 
    -o [param]
 
@@ -1208,6 +1211,32 @@ fi
       echo ""
       operatorabfrage
       echo ""
+
+     elif [ "$OPTARG" == "shapeid" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "shapeid" ]; then
+        agencyanswer="$2"
+        routenr="$3"
+        break
+       fi
+       shift
+      done
+
+      operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+      source ./verzweigung.tmp
+
+      # route_id ermitteln
+      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$routenr'\"' | cut -d, -f1)"
+      # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
+      shapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+
+      if [ -n "$shapeidlist" ]; then
+       echo "$shapeidlist"
+      fi
+
 
      else
 
