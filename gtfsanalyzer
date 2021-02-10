@@ -1056,7 +1056,8 @@ fi
        for ((b=1 ; b<=(("$anzstopsinroute")) ; b++)); do
         stopline="$(echo "$trip" | sed -n ''$b'p')"
         haltestellenid="$(echo "$stopline" | cut -d, -f4)"
-        haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
+        # Hier werden auch Entities angepasst.
+        haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/;s/&/&amp;/g;s/</&lt;/g;s/>/&gt;/g')"
         haltestellelatlon="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"[^\"]*\"[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,\"\([^\"]*\)\"[^,]*,.*$/<wpt lat=\"\1\" lon=\"\2\">/')"
         echo "$haltestellelatlon" >>./"$OPTARG"_"$shapeid".gpx
         echo "<name>Stop ${b}: ${haltestelle}</name>" >>./"$OPTARG"_"$shapeid".gpx
