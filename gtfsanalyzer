@@ -148,13 +148,27 @@ Options:
    -l [param] [agency] [route_short_name]
 
 	(list) option with mandatory parameter.
-	benötigt einen weiteren Parameter in Form einer Routennummer.
-	Beispiel: $0 -l routes                                  listet alle Routennummern einer agency auf.
-	Beispiel: $0 -l stops                                   listet alle Haltestellen einer agency auf.
-	Beispiel: $0 -l allstops                                listet alle Haltestellen der GTFS-Daten auf.
-	Beispiel: $0 -l agencies                                listet alle Verkehrsunternehmen der GTFS-Daten auf.
-	Beispiel: $0 -l shapeid [agency] [route_short_name]     listet alle ShapeIDs einer bestimmten Route auf.
-                                                            Benötigt weitere Parameter.
+	benötigt einen weiteren Parameter.
+	
+	Beispiel: $0 -l routes
+	          listet alle Routennummern einer agency auf.
+	Beispiel: $0 -l stops
+	          listet alle Haltestellen einer agency auf.
+	Beispiel: $0 -l allstops
+	          listet alle Haltestellen der GTFS-Daten auf.
+	Beispiel: $0 -l agencies
+	          listet alle Verkehrsunternehmen der GTFS-Daten auf.
+	Beispiel: $0 -l shapeid [agency] [route_short_name]
+	          listet alle ShapeIDs einer bestimmten Route auf.
+	          Benötigt weitere Parameter. Den agency-Parameter ermittelt man mit $0 -l agencies
+	          Den route_short_name-Parameter ermittelt man mit $0 -l routes
+	Beispiel: $0 -l allshapes [agency]
+	          listet alle ShapeIDs eines Verkehrsunternehmens auf.
+	          Benötigt einen weiteren Parameter. Den agency-Parameter ermittelt man mit $0 -l agencies
+	Beispiel: $0 -l singleshape [shape_id]
+	          Listet Routen zur angegebenen ShapeID auf.
+	          Benötigt einen weiteren Parameter in Form einer ShapeID.
+
 
    -o [param]
 
@@ -691,39 +705,73 @@ do
 bothsingle() {
       # route_id ermitteln
       routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+      anzrouteids="$(echo "$routeid" | wc -l)"
+  
+      if [ -n "$routeid" -a "$anzrouteids" -gt "1" ]; then
 
-      if [ -n "$routeid" ]; then
+       echo "Es gibt mehrere RoutenIDs mit der AgencyID ${agencyid} und der Routenbezeichnung ${OPTARG} in der Datei routes.txt."
+       echo "Passende RouteID wird ermittelt ..."
+       for evaluateline in $(seq 1 "$anzrouteids"); do
+        newrouteid="$(echo "$routeid" | sed -n ''${evaluateline}'p')"
+        checknewrouteid="$(sed -n '/^'"$newrouteid"',[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt)"
+        if [ -n "$checknewrouteid" ]; then
+         routeid="$newrouteid"
+         anzrouteids="$(echo "$routeid" | wc -l)"
+        fi
+       done
+       
+      fi
+
+      if [ -n "$routeid" -a "$anzrouteids" == "1" ]; then
 
        tripidlist="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
        # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
  
-       echo ""
-       echo "*** Ermittlung EINER Routenvariante ***" | tee ./analysis.tmp
-       echo "Ausgewertete Route: $OPTARG" | tee -a ./analysis.tmp
-       echo "Operator (agency): $agencyname" | tee -a ./analysis.tmp
-       echo "Shape-ID: $shapeid" | tee -a ./analysis.tmp
-       echo "***************************************" | tee -a ./analysis.tmp
-
+        analysekopf() {
+        echo ""
+        echo "*** Ermittlung EINER Routenvariante ***"
+        echo "Ausgewertete Route: $OPTARG"
+        echo "Operator (agency): $agencyname"
+        echo "Shape-ID: $shapeid"
+        echo "Route-ID: $(echo "$routeid" | sed 's/^["'\'']//;s/["'\'']$//')"
+        echo "***************************************" 
+        }
+       
        # ** Überprüfungen, ob diverse Angaben zur shape-id passen. **
        recheck="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | cut -d, -f1 | uniq)"
+       anzrechecklines="$(echo "$recheck" | wc -l)"
+       
+       # Beim Fund mehrerer RoutenIDs, wird der Kopf zusätzlich in die Datei zusatz.tmp geschrieben.
+       if [ "$anzrechecklines" -gt "1" ]; then
+        analysekopf | tee ./analysis.tmp ./zusatz.tmp
+       else
+        analysekopf | tee ./analysis.tmp
+       fi
+
        # Überprüfung, ob shape-ID in shapes.txt vorhanden ist (anhand leerer Variable).
        if [ -z "$(cut -d, -f1 ./shapes.txt | grep $shapeid)" ]; then
-
         echo "${0} -s: Keine passende Shape-ID gefunden." | tee -a ./analysis.tmp -a ./results/"$datenow"_error.log
         echo "Agency: ${agencyanswer}/ShapeID: ${shapeid}/Liniennummer: ${OPTARG}/(Fehlercode 0101)" >>./results/"$datenow"_error.log
 
        # Überprüfung, ob shape-ID vorhanden ist und zur agency passt (Wenn nicht, dann echo).
-       elif [ ! "$(grep '^'"$recheck"',' ./routes.txt | cut -d, -f2)" == "$agencyid" ]; then
+       elif [ ! "$(grep '^'"$recheck"',' ./routes.txt | cut -d, -f2)" == "$agencyid" -a "$anzrechecklines" == "1" ]; then
         echo "${0} -s: Shape-ID passt nicht zur agency!" | tee -a ./analysis.tmp -a ./results/"$datenow"_error.log
         echo "Agency: ${agencyanswer}/ShapeID: ${shapeid}/Liniennummer: ${OPTARG}/(Fehlercode 0102)" >>./results/"$datenow"_error.log
 
        # Überprüfung, ob shape-ID zur Routennummer passt (Wenn nicht, dann echo).
-       elif [ ! "$(grep '^'"$recheck"',' ./routes.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,.*/\1/')" == "$OPTARG" ]; then
-
+       elif [ ! "$(grep '^'"$recheck"',' ./routes.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,.*/\1/')" == "$OPTARG" -a "$anzrechecklines" == "1" ]; then
         echo "${0} -s: shape_id passt nicht zur Routennummer!" | tee -a ./analysis.tmp -a ./results/"$datenow"_error.log
         echo "Agency: ${agencyanswer}/ShapeID: ${shapeid}/Liniennummer: ${OPTARG}/(Fehlercode 0103)" >>./results/"$datenow"_error.log
 
        else
+       
+        # Hier wird, bei mehreren Routen der gleichen ShapeID, alle Routen aufgelistet.
+        if [ "$anzrechecklines" -gt "1" ]; then
+         echo ""
+         echo "Wird auch noch von anderer Route genutzt:"
+         exec gtfsanalyzer -l singleshape ${shapeid} | sed '/^ShapeID.*/d'
+         echo ""
+        fi | tee -a ./zusatz.tmp
 
         # Die etwas umständlicheren sed-Befehle sind der Tatsache geschuldet, das einige Felder die gequotet sind, Feldtrenner (Kommas) enthalten und das Ergebnis mit cut verfälscht werden würde.
 
@@ -791,6 +839,14 @@ bothsingle() {
         echo "Service-ID: $serviceid" | tee -a ./analysis.tmp
         echo "Haltestellen in Route: $anzstopsinroute" | tee -a ./analysis.tmp
         echo "***************************************" | tee -a ./analysis.tmp
+   
+        # Wenn mehrere RoutenIDs gefunden wurden, wird der Zusatz an Informationen
+        # mit in die Analysedatei geschrieben.
+        if [ -e ./zusatz.tmp ]; then
+         mv ./analysis.tmp ./analysis2.tmp
+         cat ./zusatz.tmp ./analysis2.tmp >analysis.tmp
+         rm -f ./analysis2.tmp ./zusatz.tmp
+        fi
 
         mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_shapesingle_"$shapeid".txt
 
@@ -840,12 +896,45 @@ bothsingle() {
 
      # route_id ermitteln
      routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+     anzrouteids="$(echo "$routeid" | wc -l)"
+    
+     # Bei mehreren gefundenen RouteIDs wird hier später abgefragt, welche RouteID ausgewertet werden soll.
+     if [ -n "$routeid" -a "$anzrouteids" -gt "1" ]; then
 
-    if [ -n "$routeid" ]; then
+      echo ""
+      echo "Es gibt mehrere RoutenIDs mit der AgencyID ${agencyid} und der Routenbezeichnung ${OPTARG} in der Datei routes.txt." 
 
-     tripidlist="$(grep '^'"$routeid"',' ./trips.txt | cut -d, -f3)"
+      for evaluateline in $(seq 1 "$anzrouteids"); do
+        newrouteid="$(echo "$routeid" | sed -n ''${evaluateline}'p')"
+        formattedid="$(echo "$newrouteid" | sed 's/^["'\'']//;s/["'\'']$//')"
+        echo ""
+        echo "Fund ${evaluateline}:"
+        echo "RouteID: ${formattedid}"
+        echo "Gefundene ShapeIDs:"
+        grep "^$newrouteid" ./trips.txt | cut -d, -f8 | sort -n | uniq | tr '\n' ' '
+        echo ""
+      done
+      
+      unset routeid
+      unset anzrouteids
+      while [ -z "$routeid" ]; do
+       read -p  "Welche RouteID soll ausgewertet werden? " newrouteid
+       routeidcheck="$(cut -d, -f1,2,3 ./routes.txt | grep '^["'\'']*'"$newrouteid"'["'\'']*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1 | sed 's/^["'\'']//;s/["'\'']$//')"
+       if [ "$newrouteid" == "$routeidcheck" ]; then
+        routeid="$newrouteid"
+        anzrouteids="$(echo "$routeid" | wc -l)"
+       else
+        echo "Ungültige RouteID (${newrouteid}) für AgencyID ${agencyid} und der Routenbezeichnung ${OPTARG}."
+       fi
+      done
+      
+     fi
+
+     if [ -n "$routeid" -a "$anzrouteids" == "1" ]; then
+
+     tripidlist="$(grep '^["'\'']*'"$routeid"'["'\'']*,' ./trips.txt | cut -d, -f3)"
      # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
-     shapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+     shapeidlist="$(grep '^["'\'']*'"$routeid"'["'\'']*,' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
 
      echo ""
      echo "*** Ermittlung von Routenvarianten ****" | tee ./analysis.tmp
@@ -854,6 +943,7 @@ bothsingle() {
      echo "Operator (agency): $agencyname" | tee -a ./analysis.tmp
      echo "$anzshapeid Fahrtvarianten gefunden (shape_id):" | tee -a ./analysis.tmp
      echo $shapeidlist | tee -a ./analysis.tmp
+     echo "Route-ID: $(echo "$routeid" | sed 's/^["'\'']//;s/["'\'']$//')" | tee -a ./analysis.tmp
      echo "***************************************" | tee -a ./analysis.tmp
 
      # In dieser Schleife wird die shape_id ermittelt und EINE dazugehörige trip_id ermittelt, weil nicht jeder einzelne Trip ausgewertet werden soll. Die etwas umständlicheren sed-Befehle sind der Tatsache geschuldet, das einige Felder die gequotet sind, Feldtrenner (Kommas) enthalten und das Ergebnis mit cut verfälscht werden würde.
@@ -864,7 +954,7 @@ bothsingle() {
 
       shapeid="$(echo "$shapeidlist" | sed -n ''$c'p')"
       # uniq -f: Das Feld wird nicht ausgewertet.
-      shapeidwithtrip="$(sed -n '/^'"$routeid"',[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
+      shapeidwithtrip="$(sed -n '/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed 's/^[^,]*,[^,]*,\([^,]*\),\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1,\2/' | uniq -f 1)"
       tripid="$(echo "$shapeidwithtrip" | grep "$shapeid" | cut -d, -f1 )"
       trip="$(grep '^'"$tripid"',' ./stop_times.txt)"
       serviceid="$(grep "$tripid" ./trips.txt | cut -d, -f2)"
@@ -1010,8 +1100,19 @@ fi
 
     fi
 
-     # route_id ermitteln
-     routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+    # route_id ermitteln
+    routeidliste="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$OPTARG'\"' | cut -d, -f1)"
+    anzrouteids="$(echo "$routeidliste" | wc -l)"
+    
+    if [ "$anzrouteids" -gt "1" ]; then
+     echo ""
+     echo "Es wurden mehrere RouteIDs gefunden:"
+     echo "$routeidliste" | sed 's/^["'\'']//;s/["'\'']$//'
+    fi
+
+   for singlerouteid in $(seq 1 "$anzrouteids"); do
+    
+    routeid="$(echo "$routeidliste" | sed -n ''${singlerouteid}'p')"
 
     if [ -n "$routeid" ]; then
 
@@ -1025,6 +1126,7 @@ fi
      echo "Operator (agency): $agencyname" | tee -a ./analysis.tmp
      echo "$anzshapeid Fahrtvarianten gefunden (shape_id):" | tee -a ./analysis.tmp
      echo $shapeidlist | tee -a ./analysis.tmp
+     echo "RouteID: $(echo "$routeid" | sed 's/^["'\'']//;s/["'\'']$//')" | tee -a ./analysis.tmp
      echo "***************************************" | tee -a ./analysis.tmp
 
      for ((c=1 ; c<=(("$anzshapeid")) ; c++)); do
@@ -1103,6 +1205,8 @@ fi
       echo "Shape-ID: ${shapeidauto}" >>./results/"$datenow"_error.log
      fi
     fi
+    
+   done
 
     if [ "$1" == "auto" -o "$1" == "singleauto" ]; then
      break
@@ -1237,6 +1341,68 @@ fi
       if [ -n "$shapeidlist" ]; then
        echo "$shapeidlist"
       fi
+      
+     elif [ "$OPTARG" == "allshapes" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "allshapes" ]; then
+        agencyanswer="$2"
+        break
+       fi
+       shift
+      done
+
+      operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+      source ./verzweigung.tmp
+      
+      # route_id ermitteln
+      routeidlist="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',' | cut -d, -f1 | sed 's/^["'\'']//;s/["'\'']$//')"
+      greplist=$(echo $routeidlist | tr ' ' '|')   
+      # Auf cut wird verzichtet, weil in den Haltestellennamen oft ein Komma vorkommt und dann das Ergebnis verfälscht wird.
+      shapeidlist="$(egrep '^["'\'']*'"$greplist"'["'\'']*,' ./trips.txt | sed 's/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,\([^,]*\),[^,]*,.*$/\1/' | sort | uniq)"
+      echo "$shapeidlist"
+      
+     elif [ "$OPTARG" == "singleshape" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "singleshape" ]; then
+        shapeid="$2"
+        break
+       fi
+       shift
+      done
+
+      operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+      source ./verzweigung.tmp
+      
+      routeidlist="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt  | cut -d, -f1 | sort | uniq)"
+      anzroutes="$(echo "$routeidlist" | wc -l)"
+      
+      if [ -z "$routeidlist" ]; then
+       echo "ShapeID existiert nicht."
+       exit
+      fi
+      
+      echo "ShapeID          : ${shapeid}"
+      echo "Gefundene Routen : ${anzroutes}"
+      echo "****************************"
+
+      for ((a=1 ; a<=(("$anzroutes")) ; a++)); do
+       routeid="$(echo "$routeidlist" | sed -n ''$a'p' | sed 's/^["'\'']//;s/["'\'']$//')"
+       routesline="$(grep '^["'\'']*'"$routeid"'["'\'']*' routes.txt)"
+       agencyid="$(echo "$routesline" | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
+       agencyname="$(grep '^["'\'']*'"$agencyid"'["'\'']*' agency.txt | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
+       routeshortname="$(echo "$routesline" | cut -d, -f3 | sed 's/^["'\'']//;s/["'\'']$//')"
+       echo "RouteID          : ${routeid}"
+       echo "AgencyID         : ${agencyid}"
+       echo "Agency name      : ${agencyname}"
+       echo "route_short_name : ${routeshortname}"
+       echo "----------------------------"
+      done
 
 
      else
