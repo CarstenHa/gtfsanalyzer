@@ -166,9 +166,17 @@ Options:
 	          listet alle ShapeIDs eines Verkehrsunternehmens auf.
 	          Benötigt einen weiteren Parameter. Den agency-Parameter ermittelt man mit $0 -l agencies
 	Beispiel: $0 -l singleshape [shape_id]
-	          Listet Routen zur angegebenen ShapeID auf.
+	          listet Routen zur angegebenen ShapeID auf.
 	          Benötigt einen weiteren Parameter in Form einer ShapeID.
-
+	Beispiel: $0 -l service [shape_id]
+	          listet die festen, zusätzlichen und fehlenden Verkehrstage einer Routenvariante auf.
+	          Benötigt einen weiteren Parameter in Form einer ShapeID.
+	Beispiel: $0 -l servicedays [shape_id]
+	          listet die festen Verkehrstage einer Routenvariante auf.
+	          Benötigt einen weiteren Parameter in Form einer ShapeID.
+	Beispiel: $0 -l servicedates [shape_id]
+	          listet die zusätzlichen und fehlenden Verkehrstage einer Routenvariante auf.
+	          Benötigt einen weiteren Parameter in Form einer ShapeID.
 
    -o [param]
 
@@ -1397,10 +1405,130 @@ fi
        agencyid="$(echo "$routesline" | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
        agencyname="$(grep '^["'\'']*'"$agencyid"'["'\'']*' agency.txt | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
        routeshortname="$(echo "$routesline" | cut -d, -f3 | sed 's/^["'\'']//;s/["'\'']$//')"
+       tripline="$(sed -n '/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed -n '1p')"
+       tripheadsign="$(echo "$tripline" | sed 's/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/\1/')"
        echo "RouteID          : ${routeid}"
        echo "AgencyID         : ${agencyid}"
        echo "Agency name      : ${agencyname}"
        echo "route_short_name : ${routeshortname}"
+       echo "trip_headsign    : ${tripheadsign}"
+       echo "----------------------------"
+      done
+      
+     elif [ "$OPTARG" == "servicedays" -o "$OPTARG" == "servicedates" -o "$OPTARG" == "service" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "servicedays" -o "$1" == "servicedates" -o "$1" == "service" ]; then
+        shapeid="$2"
+        break
+       fi
+       shift
+      done
+
+      operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+      source ./verzweigung.tmp
+      
+      routeidlist="$(sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt  | cut -d, -f1 | sort | uniq)"
+      anzroutes="$(echo "$routeidlist" | wc -l)"
+      
+      if [ -z "$routeidlist" ]; then
+       echo "ShapeID existiert nicht."
+       exit
+      fi
+      
+      echo "ShapeID          : ${shapeid}"
+      echo "Gefundene Routen : ${anzroutes}"
+      echo "****************************"
+
+      for ((a=1 ; a<=(("$anzroutes")) ; a++)); do
+       routeid="$(echo "$routeidlist" | sed -n ''$a'p' | sed 's/^["'\'']//;s/["'\'']$//')"
+       routesline="$(grep '^["'\'']*'"$routeid"'["'\'']*' routes.txt)"
+
+       agencyid="$(echo "$routesline" | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
+       agencyname="$(grep '^["'\'']*'"$agencyid"'["'\'']*' agency.txt | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
+       routeshortname="$(echo "$routesline" | cut -d, -f3 | sed 's/^["'\'']//;s/["'\'']$//')"
+       tripline="$(sed -n '/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed -n '1p')"
+       servicelist="$(sed -n '/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | cut -f2 -d, | sort -n | uniq)"
+       anzserviceid="$(echo "$servicelist" | wc -l)"
+       tripheadsign="$(echo "$tripline" | sed 's/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/\1/')"
+       echo "RouteID          : ${routeid}"
+       echo "AgencyID         : ${agencyid}"
+       echo "Agency name      : ${agencyname}"
+       echo "route_short_name : ${routeshortname}"
+       echo "trip_headsign    : ${tripheadsign}"
+       echo "ServiceID        : "${servicelist}
+       echo "****************************"
+       
+       # Schleife für feste Verkehrstage.
+       servicedaysloop() {
+        for serviceline in $(seq 1 "$anzserviceid"); do
+         serviceid="$(echo "$servicelist" | sed -n ''${serviceline}'p')"
+         echo -e "\nServiceID: ${serviceid}"
+         grep '^["'\'']*'"$serviceid"'["'\'']*,' ./calendar.txt | cut -f2-8 -d, | sed 's/,/ /g'
+         echo "Gültigkeit (von-bis; einschließlich): $(grep '^["'\'']*'"$serviceid"'["'\'']*,' ./calendar.txt | cut -f9,10 -d, | sed 's/,/-/g')"
+        done
+       }
+       
+       # Schleife für zusätzliche bzw. fehlende Verkehrstage
+       servicedatesloop() {
+        for serviceline in $(seq 1 "$anzserviceid"); do
+         serviceid="$(echo "$servicelist" | sed -n ''${serviceline}'p')"
+         caldates="$(grep '^["'\'']*'"$serviceid"'["'\'']*,' ./calendar_dates.txt)"
+         caldatesadd="$(echo "$caldates" | sed -n 's/^["'\'']*'"$serviceid"'["'\'']*,["'\'']*\([[:digit:]]*\)["'\'']*,["'\'']*1["'\'']*.*$/\1/p' | sort -n)"
+         caldatesrm="$(echo "$caldates" | sed -n 's/^["'\'']*'"$serviceid"'["'\'']*,["'\'']*\([[:digit:]]*\)["'\'']*,["'\'']*2["'\'']*.*$/\1/p' | sort -n)"
+         if [ -n "$caldatesadd" -o -n "$caldatesrm" ]; then
+          echo -e "\nServiceID: ${serviceid}"
+         fi
+         if [ -n "$caldatesadd" ]; then
+          echo "Zusätzliche Verkehrstage:"
+          echo "$caldatesadd"
+         fi
+         if [ -n "$caldatesrm" ]; then
+          echo "Fährt nicht an diesen Tagen:"
+          echo "$caldatesrm"
+         fi
+
+        done
+       }
+       
+       # Schleife für die komplette Analyse der Verkehrstage
+       serviceloop() {
+        for serviceline in $(seq 1 "$anzserviceid"); do
+         serviceid="$(echo "$servicelist" | sed -n ''${serviceline}'p')"
+         if [ "$serviceline" == "1" ]; then
+          echo "ServiceID: ${serviceid}"
+         else
+          echo -e "\nServiceID: ${serviceid}"
+         fi
+         echo "Verkehrstage (mo-su; 0=no; 1=yes):"
+         grep '^["'\'']*'"$serviceid"'["'\'']*,' ./calendar.txt | cut -f2-8 -d, | sed 's/,/ /g'
+         echo "Gültigkeit (von-bis; einschließlich): $(grep '^["'\'']*'"$serviceid"'["'\'']*,' ./calendar.txt | cut -f9,10 -d, | sed 's/,/-/g')"
+         caldates="$(grep '^["'\'']*'"$serviceid"'["'\'']*,' ./calendar_dates.txt)"
+         caldatesadd="$(echo "$caldates" | sed -n 's/^["'\'']*'"$serviceid"'["'\'']*,["'\'']*\([[:digit:]]*\)["'\'']*,["'\'']*1["'\'']*.*$/\1/p' | sort -n)"
+         caldatesrm="$(echo "$caldates" | sed -n 's/^["'\'']*'"$serviceid"'["'\'']*,["'\'']*\([[:digit:]]*\)["'\'']*,["'\'']*2["'\'']*.*$/\1/p' | sort -n)"
+         if [ -n "$caldatesadd" ]; then
+          echo "Zusätzliche Verkehrstage:"
+          echo "$caldatesadd"
+         fi
+         if [ -n "$caldatesrm" ]; then
+          echo "Fährt nicht an diesen Tagen:"
+          echo "$caldatesrm"
+         fi
+        done
+       }
+       
+       if [ "$OPTARG" == "servicedays" ]; then
+        echo "Verkehrstage (mo-su; 0=no; 1=yes):"
+        servicedaysloop
+       elif [ "$OPTARG" == "servicedates" ]; then
+        echo "Service dates:"
+        servicedatesloop
+       elif [ "$OPTARG" == "service" ]; then
+        serviceloop
+       fi
+
        echo "----------------------------"
       done
 
