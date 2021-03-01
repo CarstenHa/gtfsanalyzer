@@ -112,6 +112,17 @@ Für die Analyse stehen folgende Optionen zur Verfügung:
  
 Options:
 
+   -c [param] [agency] [route_short_name]
+   
+	(check) Mit dieser Option können einzelne Elemente der GTFS-Daten gecheckt werden.
+	Diese Option in vor allem für Abfragen in Verbindung mit anderen Skripten gedacht.
+	Es werden Rückgabewerte übergeben, die durch andere Skripte ausgewertet werden können.
+
+	Beispiel: $0 -c singleroute [agency] [route_short_name]
+	          Checkt, ob eine Route eines bestimmten Verkehrsunternehmens existiert.
+	          Rückgabewert bei erfolgreichen Fund     : 0
+	          Rückgabewert, wenn nichts gefunden wurde: 101
+
    -f
 
 	(formatcheck) Führt einen Check der GTFS-Daten durch (siehe auch Beschreibung oben). 
@@ -152,6 +163,10 @@ Options:
 	
 	Beispiel: $0 -l routes
 	          listet alle Routennummern einer agency auf.
+	Beispiel: $0 -l routesauto [agency]
+	          listet alle Routennummern einer agency auf. Das Ergebnis ist wie bei $0 -l routes,
+	          allerdings können alle nötigen Parameter in einem Rutsch mitgegeben werden.
+	          Das Analyseergebis wird allerdings nicht zusätzlich in eine Datei geschrieben.
 	Beispiel: $0 -l stops
 	          listet alle Haltestellen einer agency auf.
 	Beispiel: $0 -l allstops
@@ -248,10 +263,62 @@ if [ $# == "0" ]; then
  exit 10
 fi
 
-while getopts fho:t:s:g:l:w: opt
+while getopts c:fho:t:s:g:l:w: opt
 
 do 
  case $opt in
+ 
+  c) # Check
+  
+     if [ "$OPTARG" == "singleroute" ]; then
+     
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "singleroute" ]; then
+        agencyanswer="$2"
+        busnumber="$3"
+        break
+       fi
+       shift
+      done
+      
+      if [ -z "$2" ]; then
+       echo "Es muss ein Agency-Parameter angegeben werden. Den agency-Parameter ermittelt man mit $0 -l agencies"
+      fi
+      
+      if [ -z "$3" ]; then
+      
+       echo "Es muss eine Linienbezeichnung angegeben werden. Siehe $0 -h"
+       
+      else
+
+       operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+       source ./verzweigung.tmp
+      
+       routeidlist="$(grep '^.*,'"$agencyid"',' ./routes.txt | cut -d, -f1)"
+       routefilter="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',' | cut -d, -f3 | sed 's/\"\(.*\)\"/\1/' | sort -n | grep '^'"$3"'$')"
+
+       if [ -n "$routefilter" ]; then
+        echo "Route ${3} of the agency ${agencyname} exists."
+        exitcode="0"
+       elif [ -z "$routefilter" ]; then
+        echo "Route ${3} of the agency ${agencyname} doesn't exist."
+        exitcode="101"
+       fi
+       
+      fi
+      
+     else
+
+      echo "Ungültige oder fehlerhafte Angabe. Zur Übersicht der Optionen können Sie $0 -h aufrufen."
+
+     fi
+     
+     # Break, damit die Rückgabewerte nicht verfälscht werden können.
+     break
+  
+   ;;
 
   f) # *** Formatüberprüfung der GTFS-Daten ***
   
@@ -494,7 +561,9 @@ do
       echo "*****************************************" | tee -a ./analysis.tmp
 
      done
-     mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_haltestellenanalyse_"$OPTARG".txt
+     
+     agencynameforfile="$(echo ${OPTARG,,} | sed 's/[\/ ]/_/g')"
+     mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_haltestellenanalyse_"$agencynameforfile".txt
 
   ;;
 
@@ -582,13 +651,15 @@ do
         Ja|ja|J|j|"") echo "Bearbeitung der Tripauswertung wird fortgesetzt ..."
          ;;
         Nein|nein|N|n) # Angefangene Analysedatei wird verschoben. 
+        
+             agencynameforfile="$(echo ${agencyname,,} | sed 's/[\/ ]/_/g')"
 
              if [ "$buildfromshapes" == "yes" ]; then
               echo "Analyse wurde nicht durchgeführt." >>./analysis.tmp
-              mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplistfromshape_"$agencyname".txt
+              mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplistfromshape_"$agencynameforfile".txt
              else
               echo "Analyse wurde nicht durchgeführt." >>./analysis.tmp
-              mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencyname".txt
+              mv ./analysis.tmp ./results/`date +%Y%m%d_%H%M%S`_triplist_"$agencynameforfile".txt
              fi
 
            break
@@ -1243,8 +1314,36 @@ fi
       zusammenfassung1
       echo ""
 
-      mv ./gtfsroutelist.tmp ./results/`date +%Y%m%d_%H%M%S`_gtfsroutelist_"$agencyname".txt
+      agencynameforfile="$(echo ${agencyname,,} | sed 's/[\/ ]/_/g')"
+      mv ./gtfsroutelist.tmp ./results/`date +%Y%m%d_%H%M%S`_gtfsroutelist_"$agencynameforfile".txt
+      
+     elif [ "$OPTARG" == "routesauto" ]; then
+     
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
 
+       if [ "$1" == "routesauto" ]; then
+        agencyanswer="$2"
+        break
+       fi
+       shift
+      done
+      
+      if [ -z "$2" ]; then
+      
+       echo -e "Es muss ein Argument in Form der agencynumber angegeben werden.\nDiese kann mit $0 -l agencies ermittelt werden."
+       
+      else
+
+       operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+       source ./verzweigung.tmp
+      
+       routeidlist="$(grep '^.*,'"$agencyid"',' ./routes.txt | cut -d, -f1)"
+       allerouten="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',' | cut -d, -f3 | sed 's/\"\(.*\)\"/\1/' | sort -n)"
+       echo "$allerouten"
+      
+      fi
+      
      elif [ "$OPTARG" == "stops" ]; then
   
       # **** Hier werden alle Haltestellen einer bestimmten agency ermittelt. ****
@@ -1299,7 +1398,8 @@ fi
       zusammenfassung2
       echo ""
 
-      mv ./gtfsstoplist.tmp ./results/`date +%Y%m%d_%H%M%S`_gtfsstoplist_"$agencyname".txt
+      agencynameforfile="$(echo ${agencyname,,} | sed 's/[\/ ]/_/g')"
+      mv ./gtfsstoplist.tmp ./results/`date +%Y%m%d_%H%M%S`_gtfsstoplist_"$agencynameforfile".txt
 
       rm -f ./tripidlist.tmp
       rm -f ./stopidlist.tmp
@@ -1977,3 +2077,4 @@ rm -f ./htmldatei_a.tmp
 rm -f ./seclinienueber.tmp
 rm -f ./htmldatei_c.tmp
 
+exit $(echo "$exitcode")
