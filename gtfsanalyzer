@@ -93,6 +93,32 @@ operatorabfrage() {
  sed -i '2s/elif/if/1' ./verzweigung.tmp
 }
 
+routetype() {
+ if [ "$routetypenr" == "0" ]; then
+  transtype="Tram"
+ elif [ "$routetypenr" == "1" ]; then
+  transtype="Subway"
+ elif [ "$routetypenr" == "2" ]; then
+  transtype="Rail"
+ elif [ "$routetypenr" == "3" ]; then
+  transtype="Bus"
+ elif [ "$routetypenr" == "4" ]; then
+  transtype="Ferry"
+ elif [ "$routetypenr" == "5" ]; then
+  transtype="Cable tram"
+ elif [ "$routetypenr" == "6" ]; then
+  transtype="Arial lift"
+ elif [ "$routetypenr" == "7" ]; then
+  transtype="Funicular"
+ elif [ "$routetypenr" == "11" ]; then
+  transtype="Trolleybus"
+ elif [ "$routetypenr" == "12" ]; then
+  transtype="Monorail"
+ else
+  transtype="Unknown type of transportation"
+ fi
+}
+
 usage() {
 cat <<EOU
 
@@ -1504,12 +1530,15 @@ fi
        routesline="$(grep '^["'\'']*'"$routeid"'["'\'']*' routes.txt)"
        agencyid="$(echo "$routesline" | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
        agencyname="$(grep '^["'\'']*'"$agencyid"'["'\'']*' agency.txt | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
+       routetypenr="$(echo "$routesline" | cut -f5 -d, | sed 's/^["'\'']//;s/["'\'']$//')"
+       routetype
        routeshortname="$(echo "$routesline" | cut -d, -f3 | sed 's/^["'\'']//;s/["'\'']$//')"
        tripline="$(sed -n '/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed -n '1p')"
        tripheadsign="$(echo "$tripline" | sed 's/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/\1/')"
        echo "RouteID          : ${routeid}"
        echo "AgencyID         : ${agencyid}"
        echo "Agency name      : ${agencyname}"
+       echo "route_type       : ${routetypenr} (${transtype})"
        echo "route_short_name : ${routeshortname}"
        echo "trip_headsign    : ${tripheadsign}"
        echo "----------------------------"
@@ -1548,6 +1577,8 @@ fi
 
        agencyid="$(echo "$routesline" | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
        agencyname="$(grep '^["'\'']*'"$agencyid"'["'\'']*' agency.txt | cut -d, -f2 | sed 's/^["'\'']//;s/["'\'']$//')"
+       routetypenr="$(echo "$routesline" | cut -f5 -d, | sed 's/^["'\'']//;s/["'\'']$//')"
+       routetype
        routeshortname="$(echo "$routesline" | cut -d, -f3 | sed 's/^["'\'']//;s/["'\'']$//')"
        tripline="$(sed -n '/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | sed -n '1p')"
        servicelist="$(sed -n '/^["'\'']*'"$routeid"'["'\'']*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,'"$shapeid"',[^,]*,.*$/p' ./trips.txt | cut -f2 -d, | sort -n | uniq)"
@@ -1556,6 +1587,7 @@ fi
        echo "RouteID          : ${routeid}"
        echo "AgencyID         : ${agencyid}"
        echo "Agency name      : ${agencyname}"
+       echo "route_type       : ${routetypenr} (${transtype})"
        echo "route_short_name : ${routeshortname}"
        echo "trip_headsign    : ${tripheadsign}"
        echo "ServiceID        : "${servicelist}
