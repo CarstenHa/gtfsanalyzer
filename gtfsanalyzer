@@ -1921,11 +1921,11 @@ fi
 
           # firstlaststop ist für die Linienübersicht zu Beginn der HTML-Seite.
           if [ "$f" == "1" ]; then
-           sed -i 's/@stopbegin/'"${haltestelle}"'/' ./htmldatei.tmp
+           sed -i 's%@stopbegin%'"${haltestelle}"'%' ./htmldatei.tmp
            firstlaststop="${haltestelle}"
           fi
           if [ "$f" == "$anzhaltestellen" ]; then
-           sed -i 's/@stopend/'"${haltestelle}"'/' ./htmldatei.tmp
+           sed -i 's%@stopend%'"${haltestelle}"'%' ./htmldatei.tmp
            firstlaststop="<li><a href=\"#${shapeid}\">${firstlaststop} => ${haltestelle} (${shapeid})</a></li>"
           fi
 
