@@ -209,6 +209,15 @@ Options:
 	Beispiel: $0 -l singleshape [shape_id]
 	          listet Routen zur angegebenen ShapeID auf.
 	          Benötigt einen weiteren Parameter in Form einer ShapeID.
+	Beispiel: $0 -l noshape [agency] [route_short_name]
+	          listet alle Trips (inkl. RouteID, ServiceID und Trip-Headsign) einer Route ohne ShapeID auf.
+	          Benötigt weitere Parameter. Den agency-Parameter ermittelt man mit $0 -l agencies
+	          Den route_short_name-Parameter ermittelt man mit $0 -l routes
+	Beispiel: $0 -l noshapeauto [agency] [route_short_name]
+	          listet alle TripIDs einer Route ohne ShapeID auf. Kann gut für die Weiterverarbeitung
+	          in Skripten genutzt werden.
+	          Benötigt weitere Parameter. Den agency-Parameter ermittelt man mit $0 -l agencies
+	          Den route_short_name-Parameter ermittelt man mit $0 -l routes
 	Beispiel: $0 -l service [shape_id]
 	          listet die festen, zusätzlichen und fehlenden Verkehrstage einer Routenvariante auf.
 	          Benötigt einen weiteren Parameter in Form einer ShapeID.
@@ -218,6 +227,10 @@ Options:
 	Beispiel: $0 -l servicedates [shape_id]
 	          listet die zusätzlichen und fehlenden Verkehrstage einer Routenvariante auf.
 	          Benötigt einen weiteren Parameter in Form einer ShapeID.
+	Beispiel: $0 -l tripsnumber [agency] [route_short_name]
+	          zeigt die Anzahl der Trips einer bestimmten Route an.
+	          Benötigt weitere Parameter. Den agency-Parameter ermittelt man mit $0 -l agencies
+	          Den route_short_name-Parameter ermittelt man mit $0 -l routes
 
    -o [param]
 
@@ -1048,6 +1061,7 @@ bothsingle() {
      echo "Operator (agency): $agencyname" | tee -a ./analysis.tmp
      echo "$anzshapeid Fahrtvarianten gefunden (shape_id):" | tee -a ./analysis.tmp
      echo $shapeidlist | tee -a ./analysis.tmp
+     [ "$anzshapeid" -gt "$(echo $shapeidlist | wc -w)" ] && shapeerror="yes"
      echo "Route-ID: $(echo "$routeid" | sed 's/^["'\'']//;s/["'\'']$//')" | tee -a ./analysis.tmp
      echo "***************************************" | tee -a ./analysis.tmp
 
@@ -1138,6 +1152,11 @@ bothsingle() {
       echo "Nr  ShapeID Stop Von                                            Nach"
       echo "$shortsummary"
       echo ""
+      if [ "$shapeerror" == "yes" ]; then
+       echo "ACHTUNG! Es gibt Trips ohne passende ShapeID."
+       echo ""
+       unset shapeerror
+      fi
      fi
 
      # Zwei Kommas in der abgegrenzten Variablen wandeln alle Großbuschstaben in kleine um.
@@ -1664,6 +1683,82 @@ fi
        echo "----------------------------"
       done
 
+     elif [ "$OPTARG" == "tripsnumber" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "tripsnumber" ]; then
+        agencyanswer="$2"
+        routeshortname="$3"
+        break
+       fi
+       shift
+      done
+
+      if [ -z "$2" -o -z "$3" ]; then
+
+       echo -e "Es müssen zwei Argumente in Form der agencynumber und des Liniennamens angegeben werden.\nDiese kann mit $0 -l agencies bzw. $0 -l routes ermittelt werden."
+
+      else
+
+       operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+       source ./verzweigung.tmp
+
+       routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$routeshortname'\"' | cut -d, -f1)"
+       grep -c '^'"$routeid"',' ./trips.txt
+
+      fi
+
+     elif [ "$OPTARG" == "noshape" -o "$OPTARG" == "noshapeauto" ]; then
+
+      # Argumente werden geshiftet
+      while [ $# -ne 0 ]; do
+
+       if [ "$1" == "noshape" -o "$1" == "noshapeauto" ]; then
+        agencyanswer="$2"
+        routeshortname="$3"
+        break
+       fi
+       shift
+      done
+
+      if [ -z "$2" -o -z "$3" ]; then
+
+       echo -e "Es müssen zwei Argumente in Form der agencynumber und des Liniennamens angegeben werden.\nDiese kann mit $0 -l agencies bzw. $0 -l routes ermittelt werden."
+
+      else
+
+       operatorabfrage 2>&1 >/dev/null && source ./verzweigung.tmp
+       source ./verzweigung.tmp
+
+       routeid="$(cut -d, -f1,2,3 ./routes.txt | grep '^.*,'$agencyid',\"'$routeshortname'\"' | cut -d, -f1)"
+       noshapeidlist="$(grep '^'"$routeid"',' ./trips.txt | sed -n '/^[^,]*,[^,]*,[^,]*,\"[^\"]*\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,["'\'']*,[^,]*,.*$/p')"
+       if [ -n "$noshapeidlist" ]; then
+        if [ "$OPTARG" == "noshape" ]; then
+         echo "   RouteID  ServiceID        TripID      Headsign"
+         echo "-----------------------------------------------------------------------------"
+        fi
+        while read -r noshapesingle; do
+         nsrouteid="$(echo "$noshapesingle" | sed 's/\(^[^,]*\),.*$/\1/' | sed 's/^["'\'']//;s/["'\'']$//')"
+         nsservid="$(echo "$noshapesingle" | sed 's/^[^,]*,\([^,]*\),.*$/\1/' | sed 's/^["'\'']//;s/["'\'']$//')"
+         nstripid="$(echo "$noshapesingle" | sed 's/^[^,]*,[^,]*,\([^,]*\),.*$/\1/' | sed 's/^["'\'']//;s/["'\'']$//')"
+         nsheadsign="$(echo "$noshapesingle" | sed 's/^["'\'']*'"$nsrouteid"'["'\'']*,[^,]*,[^,]*,\"\([^\"]*\)\"[^,]*,\"[^\"]*\"[^,]*,[^,]*,[^,]*,,[^,]*,.*$/\1/')"
+         if [ "$OPTARG" == "noshape" ]; then
+          printf '%10d %10d %16s   %-50s\n' "$nsrouteid" "$nsservid" "$nstripid" "$nsheadsign"
+         elif [ "$OPTARG" == "noshapeauto" ]; then
+          echo "$nstripid"
+         fi
+        done <<<"$noshapeidlist"
+        if [ "$OPTARG" == "noshape" ]; then
+         echo "**************************** Trips ohne ShapeID *****************************"
+         echo "Agency: ${agencyname}"
+         echo "Route : ${routeshortname}"
+         echo "*****************************************************************************"
+        fi
+       fi
+
+      fi
 
      else
 
@@ -1880,11 +1975,17 @@ fi
       # Trips der entsprechenden ShapeID werden gefiltert.
       tripsfromshapelist="$(cat ./htmlsortlist.tmp | grep ','$shapeid',' | cut -d, -f1 | uniq)"
       anztripsfromshape="$(echo "$tripsfromshapelist" | wc -l)"
-      echo "  <div id=\"${shapeid}\" class=\"shapetab\">" >>./htmldatei.tmp
-      echo "  <h2>Fahrtvariante ${c}:</h2>" >>./htmldatei.tmp
-      echo "  <h3>Von: @stopbegin</h3>" >>./htmldatei.tmp
-      echo "  <h3>Nach: @stopend</h3>" >>./htmldatei.tmp
-      echo "  <h4>ShapeID: ${shapeid}</h4>" >>./htmldatei.tmp
+      if [ -n "$shapeid" ]; then
+       echo "  <div id=\"${shapeid}\" class=\"shapetab\">" >>./htmldatei.tmp
+       echo "  <h2>Fahrtvariante ${c}:</h2>" >>./htmldatei.tmp
+       echo "  <h3>Von: @stopbegin</h3>" >>./htmldatei.tmp
+       echo "  <h3>Nach: @stopend</h3>" >>./htmldatei.tmp
+       echo "  <h4>ShapeID: ${shapeid}</h4>" >>./htmldatei.tmp
+      elif [ -z "$shapeid" ]; then
+       echo "  <div id=\"noshape${c}\" class=\"shapetab\">" >>./htmldatei.tmp
+       echo "  <h2>Fahrtvariante ${c} ohne ShapeID</h2>" >>./htmldatei.tmp
+       echo "  <h3>Es werden nur die TripIDs aufgelistet</h3>" >>./htmldatei.tmp
+      fi
       echo "  <p><a href=\"#linienueber\">zur Linienübersicht</a></p>" >>./htmldatei.tmp
       echo "  <table>" >>./htmldatei.tmp
 
@@ -1926,10 +2027,14 @@ fi
           fi
           if [ "$f" == "$anzhaltestellen" ]; then
            sed -i 's%@stopend%'"${haltestelle}"'%' ./htmldatei.tmp
-           firstlaststop="<li><a href=\"#${shapeid}\">${firstlaststop} => ${haltestelle} (${shapeid})</a></li>"
+           if [ -n "$shapeid" ]; then
+            firstlaststop="<li><a href=\"#${shapeid}\">${firstlaststop} => ${haltestelle} (${shapeid})</a></li>"
+           else
+            firstlaststop="<li><a href=\"#noshape${c}\">Trips ohne ShapeID</a></li>"
+           fi
           fi
+          [ -n "$shapeid" ] && echo "    <th><span>${haltestelle}</span></th>" >>./htmldatei.tmp
 
-          echo "    <th><span>${haltestelle}</span></th>" >>./htmldatei.tmp
          done
          echo "    $firstlaststop" >>./seclinienueber.tmp
 
@@ -1993,11 +2098,13 @@ fi
         echo "    <td>${tripid}</td>" >>./htmldatei.tmp
 
         # Hier werden die Uhrzeiten in HTML-Seite eingefügt.
-        for ((e=1 ; e<=(("$anzhaltestellen")) ; e++)); do
-         tripline="$(echo "$trip" | sed -n ''${e}'p')"
-         stopid="$(echo "$tripline" | cut -d, -f3)"
-         echo "$tripline" | cut -d, -f2 | sed 's/\(..:..\):../    <td>\1<\/td>/' >>./htmldatei.tmp
-        done
+        if [ -n "$shapeid" ]; then
+         for ((e=1 ; e<=(("$anzhaltestellen")) ; e++)); do
+          tripline="$(echo "$trip" | sed -n ''${e}'p')"
+          stopid="$(echo "$tripline" | cut -d, -f3)"
+          echo "$tripline" | cut -d, -f2 | sed 's/\(..:..\):../    <td>\1<\/td>/' >>./htmldatei.tmp
+         done
+        fi
  
         echo "   </tr>" >>./htmldatei.tmp
 
