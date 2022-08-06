@@ -193,6 +193,8 @@ Options:
 	          listet alle Routennummern einer agency auf. Das Ergebnis ist wie bei $0 -l routes,
 	          allerdings können alle nötigen Parameter in einem Rutsch mitgegeben werden.
 	          Das Analyseergebis wird allerdings nicht zusätzlich in eine Datei geschrieben.
+	Beispiel: $0 -l routeagencies
+	          listet alle Verkehrsunternehmen zu einer bestimmten Route auf.
 	Beispiel: $0 -l stops
 	          listet alle Haltestellen einer agency auf.
 	Beispiel: $0 -l allstops
@@ -1361,7 +1363,27 @@ fi
 
       agencynameforfile="$(echo ${agencyname,,} | sed 's/[\/ ]/_/g')"
       mv ./gtfsroutelist.tmp ./results/`date +%Y%m%d_%H%M%S`_gtfsroutelist_"$agencynameforfile".txt
-      
+
+     elif [ "$OPTARG" == "routeagencies" ]; then
+
+      read -p "Bitte Routenbezeichnung eingeben (route_short_name): " rbez
+      rbezlist="$(egrep '^["'\'']*.*["'\'']*[^,]*,["'\'']*.*["'\'']*[^,]*,["'\'']*'"$rbez"'["'\'']*[^,]*,' ./routes.txt)"
+      if [ -n "$rbezlist" ]; then
+       echo "$(echo "$rbezlist" | wc -l) Route(n) mit der Bezeichnung ${rbez} gefunden:"
+       echo -e "\n RouteID AgencyID   Nr Agencyname"
+       echo "----------------------------------------------------------------------------"
+       while read -r rbezline; do
+        rbezrouteid="$(echo "$rbezline" | cut -f1 -d, | sed 's/^["'\'']//;s/["'\'']$//')"
+        agid="$(echo "$rbezline" | cut -f2 -d, | sed 's/^["'\'']//;s/["'\'']$//')"
+        agname="$(egrep '^["'\'']*'"$agid"'["'\'']*,' ./agency.txt | cut -f2 -d, | sed 's/^["'\'']//;s/["'\'']$//')"
+        agnr=$(("$(egrep -n '^["'\'']*'"$agid"'["'\'']*,' ./agency.txt | sed 's/^\([0-9]*\):.*$/\1/')" - 1))
+        printf '%8d %8d %4d %-50s\n' "$rbezrouteid" "$agid" "$agnr" "$agname"
+       done <<<"$rbezlist"
+       echo ""
+      else
+       echo "Keine Route mit der Bezeichnung ${rbez} gefunden."
+      fi
+
      elif [ "$OPTARG" == "routesauto" ]; then
      
       # Argumente werden geshiftet
