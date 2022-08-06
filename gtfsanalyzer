@@ -913,7 +913,7 @@ bothsingle() {
           abfahrtstart="$(echo "$stopline" | cut -d, -f3)"
          fi
          haltestellenid="$(echo "$stopline" | cut -d, -f4)"
-         haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
+         haltestelle="$(grep '^'"$haltestellenid"',' ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
 
          # Hier werden die erste und letzte Zeile angezeigt und in .tmp-Datei geschrieben.
          # Zwischenhalte werden nur in Datei geschrieben
@@ -1089,7 +1089,7 @@ bothsingle() {
         abfahrtstart="$(echo "$stopline" | cut -d, -f3)"
        fi
        haltestellenid="$(echo "$stopline" | cut -d, -f4)"
-       haltestelle="$(grep "$haltestellenid" ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
+       haltestelle="$(grep '^'"$haltestellenid"',' ./stops.txt | sed 's/^[^,]*,[^,]*,\"\([^\"]*\)\".*$/\1/')"
 
        # Hier werden die erste und letzte Zeile angezeigt und in .tmp-Datei geschrieben.
        # Zwischenhalte werden nur in Datei geschrieben
